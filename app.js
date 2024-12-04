@@ -43,11 +43,19 @@ wss.on('connection', ws => {
 // QR kodu HTML sayfasında göstermek için değişken
 let qrCodeUrl = '';
 
+// WebSocket bağlantısı ve QR kodunu dinamik olarak gönderme
 client.on('qr', async (qr) => {
     try {
         console.log('Yeni QR kodu alındı...');
         qrCodeUrl = await qrcode.toDataURL(qr);
         console.log('QR kod URL oluşturuldu.');
+
+        // WebSocket istemcilerine QR kodunu gönder
+        wss.clients.forEach((ws) => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'qr', qrCode: qrCodeUrl }));
+            }
+        });
     } catch (error) {
         console.error('QR kod oluşturulurken hata:', error);
     }
