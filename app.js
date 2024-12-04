@@ -2,7 +2,8 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode'); // QR kodu webde göstermek için
 const express = require('express');
 const bodyParser = require('body-parser');
-const { WebSocketServer } = require('ws');
+const WebSocket = require('ws');
+const fs = require('fs'); // Dosya sistemi işlemleri için
 
 const app = express();
 app.use(bodyParser.json());
@@ -12,13 +13,39 @@ const client = new Client({
     authStrategy: new LocalAuth()
 });
 
+// Bağlantı sonlandığında oturum bilgilerini temizle
+client.on('disconnected', (reason) => {
+    console.log('Bağlantı kesildi:', reason);
+    try {
+        fs.rmSync('.wwebjs_auth', { recursive: true, force: true }); // Tüm cache dosyalarını sil
+        console.log('.wwebjs_auth klasörü temizlendi.');
+    } catch (err) {
+        console.error('Cache temizleme sırasında hata:', err);
+    }
+});
+
+// WebSocket sunucusu
+const wss = new WebSocket.Server({ port: 8080 });
+
+wss.on('connection', ws => {
+    console.log('Yeni bir WebSocket bağlantısı kuruldu.');
+
+    client.on('message', message => {
+        console.log(`Mesaj alındı: ${message.body} - Gönderen: ${message.from}`);
+        const payload = JSON.stringify({
+            from: message.from,
+            message: message.body
+        });
+        ws.send(payload); // Mesajı WebSocket istemcisine gönder
+    });
+});
+
 // QR kodu HTML sayfasında göstermek için değişken
 let qrCodeUrl = '';
 
-// QR kod üretimi
 client.on('qr', async (qr) => {
     try {
-        console.log('QR kodu oluşturuluyor...');
+        console.log('Yeni QR kodu alındı...');
         qrCodeUrl = await qrcode.toDataURL(qr);
         console.log('QR kod URL oluşturuldu.');
     } catch (error) {
@@ -39,7 +66,7 @@ app.post('/send', (req, res) => {
         return res.status(400).send({ status: 'error', error: 'Number and message are required.' });
     }
 
-    const formattedNumber = `${number}@c.us`; // Telefon numarasını formatla
+    const formattedNumber = `${number}@c.us`;
 
     client.sendMessage(formattedNumber, message)
         .then(response => {
@@ -54,7 +81,6 @@ app.post('/send', (req, res) => {
 // QR kodu gösteren rota
 app.get('/qr', (req, res) => {
     if (qrCodeUrl) {
-        // QR kodu hazır olduğunda bunu gönder
         res.send(`
             <html>
             <head>
@@ -70,7 +96,6 @@ app.get('/qr', (req, res) => {
             </html>
         `);
     } else {
-        // QR kodu oluşturulmadıysa sayfayı yenileyin
         res.send(`
             <html>
             <head>
@@ -88,30 +113,9 @@ app.get('/qr', (req, res) => {
     }
 });
 
-// Express sunucusunu başlat
 const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () => {
-    console.log(`Express ve WebSocket sunucusu çalışıyor: Port ${PORT}`);
+app.listen(PORT, () => {
+    console.log(`Sunucu çalışıyor: http://localhost:${PORT}`);
 });
 
-// WebSocket sunucusunu Express ile birlikte başlat
-const wss = new WebSocketServer({ server });
-
-wss.on('connection', (ws) => {
-    console.log('Yeni bir WebSocket bağlantısı kuruldu.');
-
-    // Gelen mesajları WebSocket üzerinden gönder
-    client.on('message', (message) => {
-        console.log(`Mesaj alındı: ${message.body} - Gönderen: ${message.from}`);
-
-        const payload = JSON.stringify({
-            from: message.from,
-            message: message.body
-        });
-
-        ws.send(payload); // Mesajı WebSocket istemcisine gönder
-    });
-});
-
-// WhatsApp istemcisini başlat
 client.initialize();
