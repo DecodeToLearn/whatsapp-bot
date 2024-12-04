@@ -1,0 +1,29 @@
+# Node.js ile ilgili dosyalar ve klasörler
+node_modules/
+.env
+package-lock.json
+
+# WhatsApp-web.js ile ilgili cache ve auth dosyaları
+.wwebjs_cache/
+.wwebjs_auth/
+
+# PHP ile ilgili dosyalar
+send_whatsapp.php
+
+# Sisteme özel dosyalar
+.DS_Store
+Thumbs.db
+
+# Log dosyaları
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# İşletim sistemine özel dosyalar
+.idea/
+.vscode/
+*.log
+*.tmp
+
+# Git tarafından oluşturulan dosyalar
+.git/
