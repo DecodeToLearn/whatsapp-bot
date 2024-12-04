@@ -13,7 +13,7 @@ const client = new Client({
 });
 
 // WebSocket sunucusu
-const wss = new WebSocket.Server({ port: 8080 });
+const wss = new WebSocket.Server({ port: process.env.PORT || 8080 });
 
 wss.on('connection', ws => {
     console.log('Yeni bir WebSocket bağlantısı kuruldu.');
