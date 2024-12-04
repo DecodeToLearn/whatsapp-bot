@@ -12,8 +12,8 @@ const client = new Client({
     authStrategy: new LocalAuth()
 });
 
-// WebSocket sunucusu
-const wss = new WebSocket.Server({ port: process.env.PORT || 8080 });
+const PORT = process.env.PORT || 3000; // Render tarafından atanacak port
+const wss = new WebSocket.Server({ port: PORT }); 
 
 wss.on('connection', ws => {
     console.log('Yeni bir WebSocket bağlantısı kuruldu.');
@@ -108,7 +108,6 @@ app.get('/qr', (req, res) => {
 });
 
 // Express sunucusunu başlat
-const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Sunucu çalışıyor: http://localhost:${PORT}`);
 });
