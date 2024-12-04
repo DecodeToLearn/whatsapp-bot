@@ -108,8 +108,9 @@ app.get('/qr', (req, res) => {
 });
 
 // Express sunucusunu başlat
-app.listen(3000, () => {
-    console.log('Sunucu çalışıyor: http://localhost:3000');
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Sunucu çalışıyor: http://localhost:${PORT}`);
 });
 
 // WhatsApp istemcisini başlat
