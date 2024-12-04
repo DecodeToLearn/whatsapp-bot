@@ -2,7 +2,7 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode'); // QR kodu webde göstermek için
 const express = require('express');
 const bodyParser = require('body-parser');
-const WebSocket = require('ws');
+const { WebSocketServer } = require('ws');
 
 const app = express();
 app.use(bodyParser.json());
@@ -10,35 +10,6 @@ app.use(bodyParser.json());
 // WhatsApp istemcisi
 const client = new Client({
     authStrategy: new LocalAuth()
-});
-
-// PORT Değişkeni
-const PORT = process.env.PORT || 3000;
-
-// WebSocket sunucusu
-let websocketServer;
-try {
-    websocketServer = new WebSocket.Server({ port: PORT });
-    console.log(`WebSocket sunucusu çalışıyor: Port ${PORT}`);
-} catch (error) {
-    console.error(`WebSocket sunucusu başlatılamadı: ${error.message}`);
-}
-
-// WebSocket bağlantısı
-websocketServer?.on('connection', ws => {
-    console.log('Yeni bir WebSocket bağlantısı kuruldu.');
-
-    // Gelen mesajları WebSocket üzerinden gönder
-    client.on('message', message => {
-        console.log(`Mesaj alındı: ${message.body} - Gönderen: ${message.from}`);
-
-        const payload = JSON.stringify({
-            from: message.from,
-            message: message.body
-        });
-
-        ws.send(payload); // Mesajı WebSocket istemcisine gönder
-    });
 });
 
 // QR kodu HTML sayfasında göstermek için değişken
@@ -118,8 +89,28 @@ app.get('/qr', (req, res) => {
 });
 
 // Express sunucusunu başlat
-app.listen(PORT, () => {
-    console.log(`Express sunucusu çalışıyor: Port ${PORT}`);
+const PORT = process.env.PORT || 3000;
+const server = app.listen(PORT, () => {
+    console.log(`Express ve WebSocket sunucusu çalışıyor: Port ${PORT}`);
+});
+
+// WebSocket sunucusunu Express ile birlikte başlat
+const wss = new WebSocketServer({ server });
+
+wss.on('connection', (ws) => {
+    console.log('Yeni bir WebSocket bağlantısı kuruldu.');
+
+    // Gelen mesajları WebSocket üzerinden gönder
+    client.on('message', (message) => {
+        console.log(`Mesaj alındı: ${message.body} - Gönderen: ${message.from}`);
+
+        const payload = JSON.stringify({
+            from: message.from,
+            message: message.body
+        });
+
+        ws.send(payload); // Mesajı WebSocket istemcisine gönder
+    });
 });
 
 // WhatsApp istemcisini başlat
