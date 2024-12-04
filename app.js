@@ -12,10 +12,20 @@ const client = new Client({
     authStrategy: new LocalAuth()
 });
 
-const PORT = process.env.PORT || 3000; // Render tarafından atanacak port
-const wss = new WebSocket.Server({ port: PORT }); 
+// PORT Değişkeni
+const PORT = process.env.PORT || 3000;
 
-wss.on('connection', ws => {
+// WebSocket sunucusu
+let websocketServer;
+try {
+    websocketServer = new WebSocket.Server({ port: PORT });
+    console.log(`WebSocket sunucusu çalışıyor: Port ${PORT}`);
+} catch (error) {
+    console.error(`WebSocket sunucusu başlatılamadı: ${error.message}`);
+}
+
+// WebSocket bağlantısı
+websocketServer?.on('connection', ws => {
     console.log('Yeni bir WebSocket bağlantısı kuruldu.');
 
     // Gelen mesajları WebSocket üzerinden gönder
@@ -39,7 +49,7 @@ client.on('qr', async (qr) => {
     try {
         console.log('QR kodu oluşturuluyor...');
         qrCodeUrl = await qrcode.toDataURL(qr);
-        console.log('QR kod URL oluşturuldu:');
+        console.log('QR kod URL oluşturuldu.');
     } catch (error) {
         console.error('QR kod oluşturulurken hata:', error);
     }
@@ -109,7 +119,7 @@ app.get('/qr', (req, res) => {
 
 // Express sunucusunu başlat
 app.listen(PORT, () => {
-    console.log(`Sunucu çalışıyor: http://localhost:${PORT}`);
+    console.log(`Express sunucusu çalışıyor: Port ${PORT}`);
 });
 
 // WhatsApp istemcisini başlat
