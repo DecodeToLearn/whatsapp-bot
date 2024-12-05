@@ -3,7 +3,6 @@ const qrcode = require('qrcode');
 const express = require('express');
 const bodyParser = require('body-parser');
 const WebSocket = require('ws');
-const fs = require('fs');
 
 const app = express();
 const server = require('http').createServer(app);
@@ -17,7 +16,6 @@ const client = new Client({
     puppeteer: {
         headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
-        executablePath: process.env.CHROME_BIN || null,
     },
 });
 
@@ -71,7 +69,6 @@ client.on('message', async (message) => {
                 broadcast({
                     type: 'mediaMessage',
                     from: message.from,
-                    timestamp: message.timestamp,
                     caption: message.caption || '',
                     media: {
                         mimetype: media.mimetype,
@@ -79,29 +76,10 @@ client.on('message', async (message) => {
                     },
                 });
             }
-        } else if (message.location) {
-            broadcast({
-                type: 'locationMessage',
-                from: message.from,
-                timestamp: message.timestamp,
-                location: {
-                    latitude: message.location.latitude,
-                    longitude: message.location.longitude,
-                    description: message.location.description || '',
-                },
-            });
-        } else if (message.type === 'contact_card') {
-            broadcast({
-                type: 'contactMessage',
-                from: message.from,
-                timestamp: message.timestamp,
-                contact: message.vCard,
-            });
         } else {
             broadcast({
                 type: 'textMessage',
                 from: message.from,
-                timestamp: message.timestamp,
                 body: message.body,
             });
         }
@@ -121,36 +99,29 @@ wss.on('connection', (ws) => {
     if (contacts.length) {
         ws.send(JSON.stringify({ type: 'contacts', contacts }));
     }
-});
 
-// WebSocket yayın fonksiyonu
-function broadcast(data) {
-    wss.clients.forEach((ws) => {
-        if (ws.readyState === WebSocket.OPEN) {
+    ws.on('message', async (message) => {
+        const data = JSON.parse(message);
+
+        if (data.type === 'fetchMessages') {
             try {
-                ws.send(JSON.stringify(data));
+                const chat = await client.getChatById(data.chatId);
+                const messages = await chat.fetchMessages({ limit: 50 });
+                ws.send(JSON.stringify({
+                    type: 'chatMessages',
+                    chatId: data.chatId,
+                    messages: messages.map(msg => ({
+                        fromMe: msg.fromMe,
+                        body: msg.body,
+                        timestamp: msg.timestamp,
+                    })),
+                }));
             } catch (error) {
-                console.error('WebSocket mesajı gönderilirken hata:', error);
+                console.error('Mesajlar alınırken hata oluştu:', error);
             }
         }
     });
-}
-
-// QR kodu yenileme hatalarını önleme
-setInterval(async () => {
-    try {
-        if (client.pupPage && client.pupPage.evaluate) {
-            await client.pupPage.evaluate(() => {
-                const store = window.Store;
-                if (store && store.State && store.State.Socket) {
-                    store.State.Socket.disconnect();
-                }
-            });
-        }
-    } catch (error) {
-        console.error('QR kod yenileme sırasında hata:', error);
-    }
-}, 30000);
+});
 
 // Mesaj gönderme API'si
 app.post('/send', async (req, res) => {
@@ -169,6 +140,19 @@ app.post('/send', async (req, res) => {
         res.status(500).send({ error: error.message });
     }
 });
+
+// WebSocket yayın fonksiyonu
+function broadcast(data) {
+    wss.clients.forEach((ws) => {
+        if (ws.readyState === WebSocket.OPEN) {
+            try {
+                ws.send(JSON.stringify(data));
+            } catch (error) {
+                console.error('WebSocket mesajı gönderilirken hata:', error);
+            }
+        }
+    });
+}
 
 // QR kodu HTML olarak döndüren endpoint
 app.get('/qr', (req, res) => {
@@ -198,6 +182,7 @@ app.get('/qr', (req, res) => {
         `);
     }
 });
+
 // Sunucu başlatma
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
