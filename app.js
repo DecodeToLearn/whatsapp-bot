@@ -1,5 +1,6 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
+const cors = require('cors');
 const express = require('express');
 const bodyParser = require('body-parser');
 const WebSocket = require('ws');
@@ -8,7 +9,11 @@ const app = express();
 const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
 
-app.use(bodyParser.json());
+app.use(cors({
+    origin: 'https://wp.clupfashion.com',
+    methods: ['GET', 'POST'],
+    credentials: true
+}));
 
 // WhatsApp Client
 const client = new Client({
