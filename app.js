@@ -68,17 +68,15 @@ wss.on('connection', (ws) => {
                 name: contact.name || contact.pushname || contact.id.user
             }));
 
-            const chatList = chats.map(chat => ({
-                id: chat.id._serialized,
-                name: chat.name || chat.contact.pushname || chat.id.user,
-                messages: [] // Mesajlar detaylı olarak çekilebilir
-            }));
-
-            if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'contacts', contacts: contactList, chats: chatList }));
+            if (wss.clients) {
+                wss.clients.forEach((ws) => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'contacts', contacts: contactList }));
+                    }
+                });
             }
         } catch (error) {
-            console.error('Kontaklar veya sohbetler alınırken hata:', error);
+            console.error('Kontaklar alınırken hata:', error);
         }
     });
 
@@ -90,11 +88,13 @@ wss.on('connection', (ws) => {
             from: message.from,
             message: message.body
         });
-        if (ws.readyState === WebSocket.OPEN) {
-            ws.send(payload);
-        }
+    
+        wss.clients.forEach((ws) => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(payload);
+            }
+        });
     });
-});
 
 // QR kodunu her 30 saniyede bir yenile
 setInterval(() => {
