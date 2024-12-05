@@ -62,7 +62,7 @@ client.on('qr', async (qr) => {
     }
 });
 
-// QR kodu her 30 saniyede bir yenile
+// QR kodunu her 30 saniyede bir yenile
 setInterval(() => {
     client.pupPage.evaluate(() => {
         return window.Store && window.Store.State && window.Store.State.Socket.disconnect();
@@ -92,6 +92,41 @@ app.post('/send', (req, res) => {
             console.error('Mesaj gönderilirken hata oluştu:', error);
             res.status(500).send({ status: 'error', error: error.message });
         });
+});
+
+// QR kodunu HTML olarak döndüren endpoint
+app.get('/qr', (req, res) => {
+    if (qrCodeUrl) {
+        res.send(`
+            <html>
+            <head>
+                <title>WhatsApp QR Kodu</title>
+            </head>
+            <body style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: Arial, sans-serif;">
+                <div style="text-align: center;">
+                    <h1>WhatsApp QR Kodu</h1>
+                    <p>Telefonunuzdaki WhatsApp uygulamasını açarak bu QR kodu tarayın.</p>
+                    <img src="${qrCodeUrl}" alt="WhatsApp QR Kodu" style="max-width: 100%; height: auto;" />
+                </div>
+            </body>
+            </html>
+        `);
+    } else {
+        res.send(`
+            <html>
+            <head>
+                <meta http-equiv="refresh" content="2">
+                <title>QR Kodu Oluşturuluyor...</title>
+            </head>
+            <body style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: Arial, sans-serif;">
+                <div style="text-align: center;">
+                    <h1>QR Kodu Oluşturuluyor</h1>
+                    <p>Lütfen birkaç saniye bekleyin...</p>
+                </div>
+            </body>
+            </html>
+        `);
+    }
 });
 
 const PORT = process.env.PORT || 3000;
