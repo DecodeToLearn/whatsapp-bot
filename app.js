@@ -105,10 +105,16 @@ function broadcast(data) {
 
 // QR kodu yenileme hatasını önleme
 setInterval(() => {
-    if (client.pupPage) {
-        client.pupPage.evaluate(() => window.Store.State.Socket.disconnect());
+    if (client.pupPage && client.pupPage.evaluate) {
+        client.pupPage.evaluate(() => {
+            const store = window.Store;
+            if (store && store.State && store.State.Socket) {
+                store.State.Socket.disconnect();
+            }
+        }).catch((err) => console.error('QR kod yenileme sırasında hata:', err));
     }
 }, 30000);
+
 
 // Mesaj gönderme API'si
 app.post('/send', async (req, res) => {
