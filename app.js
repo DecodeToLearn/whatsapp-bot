@@ -63,13 +63,51 @@ client.on('disconnected', async (reason) => {
 });
 
 // Mesaj alındığında WebSocket'e gönder
-client.on('message', (message) => {
-    console.log(`Mesaj alındı: ${message.body} - Gönderen: ${message.from}`);
-    broadcast({
-        type: 'message',
-        from: message.from,
-        message: message.body,
-    });
+client.on('message', async (message) => {
+    try {
+        if (message.hasMedia) {
+            const media = await message.downloadMedia();
+            if (media) {
+                broadcast({
+                    type: 'mediaMessage',
+                    from: message.from,
+                    timestamp: message.timestamp,
+                    caption: message.caption || '',
+                    media: {
+                        mimetype: media.mimetype,
+                        data: media.data,
+                    },
+                });
+            }
+        } else if (message.location) {
+            broadcast({
+                type: 'locationMessage',
+                from: message.from,
+                timestamp: message.timestamp,
+                location: {
+                    latitude: message.location.latitude,
+                    longitude: message.location.longitude,
+                    description: message.location.description || '',
+                },
+            });
+        } else if (message.type === 'contact_card') {
+            broadcast({
+                type: 'contactMessage',
+                from: message.from,
+                timestamp: message.timestamp,
+                contact: message.vCard,
+            });
+        } else {
+            broadcast({
+                type: 'textMessage',
+                from: message.from,
+                timestamp: message.timestamp,
+                body: message.body,
+            });
+        }
+    } catch (error) {
+        console.error('Mesaj işleme sırasında hata:', error);
+    }
 });
 
 // WebSocket bağlantılarını yönetme
@@ -83,57 +121,7 @@ wss.on('connection', (ws) => {
     if (contacts.length) {
         ws.send(JSON.stringify({ type: 'contacts', contacts }));
     }
-
-    client.on('message', async (message) => {
-        try {
-            if (message.hasMedia) {
-                // Medya içeriği varsa
-                const media = await message.downloadMedia();
-                if (media) {
-                    broadcast({
-                        type: 'mediaMessage',
-                        from: message.from,
-                        timestamp: message.timestamp,
-                        caption: message.caption || '',
-                        media: {
-                            mimetype: media.mimetype, // Örn: image/jpeg, video/mp4
-                            data: media.data, // Base64 kodlu medya verisi
-                        },
-                    });
-                }
-            } else if (message.location) {
-                // Konum mesajı
-                broadcast({
-                    type: 'locationMessage',
-                    from: message.from,
-                    timestamp: message.timestamp,
-                    location: {
-                        latitude: message.location.latitude,
-                        longitude: message.location.longitude,
-                        description: message.location.description || '',
-                    },
-                });
-            } else if (message.type === 'contact_card') {
-                // Kişi kartı mesajı
-                broadcast({
-                    type: 'contactMessage',
-                    from: message.from,
-                    timestamp: message.timestamp,
-                    contact: message.vCard, // Kişi kartı bilgileri (vCard formatında)
-                });
-            } else {
-                // Metin mesajı
-                broadcast({
-                    type: 'textMessage',
-                    from: message.from,
-                    timestamp: message.timestamp,
-                    body: message.body,
-                });
-            }
-        } catch (error) {
-            console.error('Mesaj işleme sırasında hata:', error);
-        }
-    });
+});
 
 // WebSocket yayın fonksiyonu
 function broadcast(data) {
