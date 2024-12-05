@@ -118,6 +118,7 @@ wss.on('connection', (ws) => {
                 }));
             } catch (error) {
                 console.error('Mesajlar alınırken hata oluştu:', error);
+                ws.send(JSON.stringify({ type: 'error', error: error.message }));
             }
         }
     });
