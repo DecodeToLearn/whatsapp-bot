@@ -198,7 +198,6 @@ app.get('/qr', (req, res) => {
         `);
     }
 });
-
 // Sunucu başlatma
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
