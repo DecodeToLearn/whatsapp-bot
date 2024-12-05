@@ -6,6 +6,9 @@ const WebSocket = require('ws');
 const fs = require('fs'); // Dosya sistemi işlemleri için
 
 const app = express();
+const server = require('http').createServer(app);
+const wss = new WebSocket.Server({ server });
+
 app.use(bodyParser.json());
 
 // WhatsApp istemcisi
@@ -24,27 +27,8 @@ client.on('disconnected', (reason) => {
     }
 });
 
-// WebSocket sunucusu
-const wss = new WebSocket.Server({ port: 8080 });
-
-// Gelen mesajları WebSocket üzerinden ilet
-wss.on('connection', ws => {
-    console.log('Yeni bir WebSocket bağlantısı kuruldu.');
-
-    client.on('message', message => {
-        console.log(`Mesaj alındı: ${message.body} - Gönderen: ${message.from}`);
-        const payload = JSON.stringify({
-            type: 'message',
-            from: message.from,
-            message: message.body
-        });
-        ws.send(payload);
-    });
-});
-
 // QR kodu oluşturma ve dinamik yenileme
 let qrCodeUrl = '';
-
 client.on('qr', async (qr) => {
     try {
         console.log('Yeni QR kodu alındı...');
@@ -62,17 +46,35 @@ client.on('qr', async (qr) => {
     }
 });
 
+// Gelen mesajları WebSocket üzerinden ilet
+wss.on('connection', (ws) => {
+    console.log('Yeni bir WebSocket bağlantısı kuruldu.');
+
+    // Mesaj alındığında istemcilere gönder
+    client.on('message', (message) => {
+        console.log(`Mesaj alındı: ${message.body} - Gönderen: ${message.from}`);
+        const payload = JSON.stringify({
+            type: 'message',
+            from: message.from,
+            message: message.body
+        });
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send(payload);
+        }
+    });
+
+    // QR kod bağlantısı için ilk durumu gönder
+    if (qrCodeUrl) {
+        ws.send(JSON.stringify({ type: 'qr', qrCode: qrCodeUrl }));
+    }
+});
+
 // QR kodunu her 30 saniyede bir yenile
 setInterval(() => {
     client.pupPage.evaluate(() => {
-        return window.Store && window.Store.State && window.Store.State.Socket.disconnect();
+        window.Store && window.Store.State && window.Store.State.Socket.disconnect();
     }).catch(err => console.error('QR kod yenileme sırasında hata:', err));
 }, 30000);
-
-// Bot hazır olduğunda
-client.on('ready', () => {
-    console.log('WhatsApp botu hazır!');
-});
 
 // Mesaj gönderme API'si
 app.post('/send', (req, res) => {
@@ -129,8 +131,13 @@ app.get('/qr', (req, res) => {
     }
 });
 
+// Bot hazır olduğunda
+client.on('ready', () => {
+    console.log('WhatsApp botu hazır!');
+});
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`Sunucu çalışıyor: http://localhost:${PORT}`);
 });
 
