@@ -60,7 +60,6 @@ wss.on('connection', (ws) => {
         console.log('WhatsApp botu hazır!');
         try {
             const contacts = await client.getContacts();
-            const chats = await client.getChats();
 
             // Kontakları ve sohbet bilgilerini gönder
             const contactList = contacts.map(contact => ({
@@ -68,13 +67,11 @@ wss.on('connection', (ws) => {
                 name: contact.name || contact.pushname || contact.id.user
             }));
 
-            if (wss.clients) {
-                wss.clients.forEach((ws) => {
-                    if (ws.readyState === WebSocket.OPEN) {
-                        ws.send(JSON.stringify({ type: 'contacts', contacts: contactList }));
-                    }
-                });
-            }
+            wss.clients.forEach((client) => {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify({ type: 'contacts', contacts: contactList }));
+                }
+            });
         } catch (error) {
             console.error('Kontaklar alınırken hata:', error);
         }
@@ -88,13 +85,14 @@ wss.on('connection', (ws) => {
             from: message.from,
             message: message.body
         });
-    
-        wss.clients.forEach((ws) => {
-            if (ws.readyState === WebSocket.OPEN) {
-                ws.send(payload);
+
+        wss.clients.forEach((client) => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(payload);
             }
         });
     });
+});
 
 // QR kodunu her 30 saniyede bir yenile
 setInterval(() => {
