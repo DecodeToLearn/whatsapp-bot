@@ -1,9 +1,9 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode'); // QR kodu webde göstermek için
+const qrcode = require('qrcode');
 const express = require('express');
 const bodyParser = require('body-parser');
 const WebSocket = require('ws');
-const fs = require('fs'); // Dosya sistemi işlemleri için
+const fs = require('fs');
 
 const app = express();
 const server = require('http').createServer(app);
@@ -17,20 +17,20 @@ const client = new Client({
     puppeteer: {
         headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
-        executablePath: process.env.CHROME_BIN || null
-    }
+        executablePath: process.env.CHROME_BIN || null,
+    },
 });
 
 // Global değişkenler
-let qrCodeUrl = ''; // QR kod URL'si
-let contacts = [];  // Kontak listesi
+let qrCodeUrl = '';
+let contacts = [];
 
 // QR kodu oluşturma ve WebSocket'e gönderme
 client.on('qr', async (qr) => {
     try {
         qrCodeUrl = await qrcode.toDataURL(qr);
         console.log('Yeni QR kodu alındı.');
-        broadcast({ type: 'qr', qrCode: qrCodeUrl }); // Tüm client'lara QR kodu gönder
+        broadcast({ type: 'qr', qrCode: qrCodeUrl });
     } catch (error) {
         console.error('QR kod oluşturma hatası:', error);
     }
@@ -42,12 +42,23 @@ client.on('ready', async () => {
     try {
         contacts = (await client.getContacts()).map(contact => ({
             id: contact.id._serialized,
-            name: contact.name || contact.pushname || contact.id.user
+            name: contact.name || contact.pushname || contact.id.user,
         }));
         console.log('Kontaklar alındı.');
-        broadcast({ type: 'contacts', contacts }); // Tüm client'lara kontakları gönder
+        broadcast({ type: 'contacts', contacts });
     } catch (error) {
         console.error('Kontaklar alınırken hata oluştu:', error);
+    }
+});
+
+// WhatsApp bağlantısı kesildiğinde
+client.on('disconnected', async (reason) => {
+    console.log(`WhatsApp bağlantısı kesildi: ${reason}`);
+    try {
+        await client.destroy();
+        await client.initialize();
+    } catch (error) {
+        console.error('Bağlantı yeniden başlatılamadı:', error);
     }
 });
 
@@ -57,7 +68,7 @@ client.on('message', (message) => {
     broadcast({
         type: 'message',
         from: message.from,
-        message: message.body
+        message: message.body,
     });
 });
 
@@ -65,38 +76,64 @@ client.on('message', (message) => {
 wss.on('connection', (ws) => {
     console.log('Yeni bir WebSocket bağlantısı kuruldu.');
 
-    // QR kodu varsa hemen gönder
     if (qrCodeUrl) {
         ws.send(JSON.stringify({ type: 'qr', qrCode: qrCodeUrl }));
     }
 
-    // Kontak listesi varsa hemen gönder
     if (contacts.length) {
         ws.send(JSON.stringify({ type: 'contacts', contacts }));
     }
 
-    // İstemciden gelen özel mesaj isteklerini işleme
-    ws.on('message', async (message) => {
-        const data = JSON.parse(message);
-        if (data.type === 'fetchMessages') {
-            try {
-                const chat = await client.getChatById(data.chatId);
-                const messages = await chat.fetchMessages({ limit: 50 });
-                ws.send(JSON.stringify({
-                    type: 'chatMessages',
-                    chatId: data.chatId,
-                    messages: messages.map(msg => ({
-                        fromMe: msg.fromMe,
-                        body: msg.body,
-                        timestamp: msg.timestamp
-                    }))
-                }));
-            } catch (error) {
-                console.error('Mesajlar alınırken hata oluştu:', error);
+    client.on('message', async (message) => {
+        try {
+            if (message.hasMedia) {
+                // Medya içeriği varsa
+                const media = await message.downloadMedia();
+                if (media) {
+                    broadcast({
+                        type: 'mediaMessage',
+                        from: message.from,
+                        timestamp: message.timestamp,
+                        caption: message.caption || '',
+                        media: {
+                            mimetype: media.mimetype, // Örn: image/jpeg, video/mp4
+                            data: media.data, // Base64 kodlu medya verisi
+                        },
+                    });
+                }
+            } else if (message.location) {
+                // Konum mesajı
+                broadcast({
+                    type: 'locationMessage',
+                    from: message.from,
+                    timestamp: message.timestamp,
+                    location: {
+                        latitude: message.location.latitude,
+                        longitude: message.location.longitude,
+                        description: message.location.description || '',
+                    },
+                });
+            } else if (message.type === 'contact_card') {
+                // Kişi kartı mesajı
+                broadcast({
+                    type: 'contactMessage',
+                    from: message.from,
+                    timestamp: message.timestamp,
+                    contact: message.vCard, // Kişi kartı bilgileri (vCard formatında)
+                });
+            } else {
+                // Metin mesajı
+                broadcast({
+                    type: 'textMessage',
+                    from: message.from,
+                    timestamp: message.timestamp,
+                    body: message.body,
+                });
             }
+        } catch (error) {
+            console.error('Mesaj işleme sırasında hata:', error);
         }
     });
-});
 
 // WebSocket yayın fonksiyonu
 function broadcast(data) {
@@ -111,15 +148,19 @@ function broadcast(data) {
     });
 }
 
-// QR kodu yenileme hatasını önleme
-setInterval(() => {
-    if (client.pupPage && client.pupPage.evaluate) {
-        client.pupPage.evaluate(() => {
-            const store = window.Store;
-            if (store && store.State && store.State.Socket) {
-                store.State.Socket.disconnect();
-            }
-        }).catch((err) => console.error('QR kod yenileme sırasında hata:', err));
+// QR kodu yenileme hatalarını önleme
+setInterval(async () => {
+    try {
+        if (client.pupPage && client.pupPage.evaluate) {
+            await client.pupPage.evaluate(() => {
+                const store = window.Store;
+                if (store && store.State && store.State.Socket) {
+                    store.State.Socket.disconnect();
+                }
+            });
+        }
+    } catch (error) {
+        console.error('QR kod yenileme sırasında hata:', error);
     }
 }, 30000);
 
