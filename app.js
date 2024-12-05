@@ -27,23 +27,24 @@ client.on('disconnected', (reason) => {
 // WebSocket sunucusu
 const wss = new WebSocket.Server({ port: 8080 });
 
+// Gelen mesajları WebSocket üzerinden ilet
 wss.on('connection', ws => {
     console.log('Yeni bir WebSocket bağlantısı kuruldu.');
 
     client.on('message', message => {
         console.log(`Mesaj alındı: ${message.body} - Gönderen: ${message.from}`);
         const payload = JSON.stringify({
+            type: 'message',
             from: message.from,
             message: message.body
         });
-        ws.send(payload); // Mesajı WebSocket istemcisine gönder
+        ws.send(payload);
     });
 });
 
-// QR kodu HTML sayfasında göstermek için değişken
+// QR kodu oluşturma ve dinamik yenileme
 let qrCodeUrl = '';
 
-// WebSocket bağlantısı ve QR kodunu dinamik olarak gönderme
 client.on('qr', async (qr) => {
     try {
         console.log('Yeni QR kodu alındı...');
@@ -60,6 +61,13 @@ client.on('qr', async (qr) => {
         console.error('QR kod oluşturulurken hata:', error);
     }
 });
+
+// QR kodu her 30 saniyede bir yenile
+setInterval(() => {
+    client.pupPage.evaluate(() => {
+        return window.Store && window.Store.State && window.Store.State.Socket.disconnect();
+    }).catch(err => console.error('QR kod yenileme sırasında hata:', err));
+}, 30000);
 
 // Bot hazır olduğunda
 client.on('ready', () => {
@@ -84,41 +92,6 @@ app.post('/send', (req, res) => {
             console.error('Mesaj gönderilirken hata oluştu:', error);
             res.status(500).send({ status: 'error', error: error.message });
         });
-});
-
-// QR kodu gösteren rota
-app.get('/qr', (req, res) => {
-    if (qrCodeUrl) {
-        res.send(`
-            <html>
-            <head>
-                <title>WhatsApp QR Kodu</title>
-            </head>
-            <body style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: Arial, sans-serif;">
-                <div style="text-align: center;">
-                    <h1>WhatsApp QR Kodu</h1>
-                    <p>Telefonunuzdaki WhatsApp uygulamasını açarak bu QR kodu tarayın.</p>
-                    <img src="${qrCodeUrl}" alt="WhatsApp QR Kodu" style="max-width: 100%; height: auto;" />
-                </div>
-            </body>
-            </html>
-        `);
-    } else {
-        res.send(`
-            <html>
-            <head>
-                <meta http-equiv="refresh" content="2">
-                <title>QR Kodu Oluşturuluyor...</title>
-            </head>
-            <body style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: Arial, sans-serif;">
-                <div style="text-align: center;">
-                    <h1>QR Kodu Oluşturuluyor</h1>
-                    <p>Lütfen birkaç saniye bekleyin...</p>
-                </div>
-            </body>
-            </html>
-        `);
-    }
 });
 
 const PORT = process.env.PORT || 3000;
