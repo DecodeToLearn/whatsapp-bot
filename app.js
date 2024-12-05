@@ -50,7 +50,39 @@ client.on('qr', async (qr) => {
 wss.on('connection', (ws) => {
     console.log('Yeni bir WebSocket bağlantısı kuruldu.');
 
-    // Mesaj alındığında istemcilere gönder
+    // QR kod bağlantısı için ilk durumu gönder
+    if (qrCodeUrl) {
+        ws.send(JSON.stringify({ type: 'qr', qrCode: qrCodeUrl }));
+    }
+
+    // WhatsApp bağlantısı hazır olduğunda kontak ve sohbet bilgilerini gönder
+    client.on('ready', async () => {
+        console.log('WhatsApp botu hazır!');
+        try {
+            const contacts = await client.getContacts();
+            const chats = await client.getChats();
+
+            // Kontakları ve sohbet bilgilerini gönder
+            const contactList = contacts.map(contact => ({
+                id: contact.id._serialized,
+                name: contact.name || contact.pushname || contact.id.user
+            }));
+
+            const chatList = chats.map(chat => ({
+                id: chat.id._serialized,
+                name: chat.name || chat.contact.pushname || chat.id.user,
+                messages: [] // Mesajlar detaylı olarak çekilebilir
+            }));
+
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'contacts', contacts: contactList, chats: chatList }));
+            }
+        } catch (error) {
+            console.error('Kontaklar veya sohbetler alınırken hata:', error);
+        }
+    });
+
+    // Mesaj alındığında WebSocket istemcilerine gönder
     client.on('message', (message) => {
         console.log(`Mesaj alındı: ${message.body} - Gönderen: ${message.from}`);
         const payload = JSON.stringify({
@@ -62,11 +94,6 @@ wss.on('connection', (ws) => {
             ws.send(payload);
         }
     });
-
-    // QR kod bağlantısı için ilk durumu gönder
-    if (qrCodeUrl) {
-        ws.send(JSON.stringify({ type: 'qr', qrCode: qrCodeUrl }));
-    }
 });
 
 // QR kodunu her 30 saniyede bir yenile
@@ -129,11 +156,6 @@ app.get('/qr', (req, res) => {
             </html>
         `);
     }
-});
-
-// Bot hazır olduğunda
-client.on('ready', () => {
-    console.log('WhatsApp botu hazır!');
 });
 
 const PORT = process.env.PORT || 3000;
