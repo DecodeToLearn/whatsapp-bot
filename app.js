@@ -14,7 +14,11 @@ app.use(bodyParser.json());
 // WhatsApp Client
 const client = new Client({
     authStrategy: new LocalAuth(),
-    puppeteer: { headless: true } // Tarayıcı arka planda çalıştırılır
+    puppeteer: {
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        executablePath: process.env.CHROME_BIN || null
+    }
 });
 
 // Global değişkenler
@@ -98,7 +102,11 @@ wss.on('connection', (ws) => {
 function broadcast(data) {
     wss.clients.forEach((ws) => {
         if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify(data));
+            try {
+                ws.send(JSON.stringify(data));
+            } catch (error) {
+                console.error('WebSocket mesajı gönderilirken hata:', error);
+            }
         }
     });
 }
@@ -114,7 +122,6 @@ setInterval(() => {
         }).catch((err) => console.error('QR kod yenileme sırasında hata:', err));
     }
 }, 30000);
-
 
 // Mesaj gönderme API'si
 app.post('/send', async (req, res) => {
