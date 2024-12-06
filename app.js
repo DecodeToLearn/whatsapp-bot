@@ -90,7 +90,11 @@ client.on('message', async (message) => {
             broadcast({
                 type: 'locationMessage',
                 from: message.from,
-                location: message.location,
+                location: {
+                    latitude: message.location.latitude,
+                    longitude: message.location.longitude,
+                    description: message.location.description || '',
+                },
             });
         } else if (message.type === 'contact_card') {
             broadcast({
@@ -129,14 +133,50 @@ wss.on('connection', (ws) => {
             try {
                 const chat = await client.getChatById(data.chatId);
                 const messages = await chat.fetchMessages({ limit: 50 });
+
+                const formattedMessages = await Promise.all(
+                    messages.map(async (msg) => {
+                        if (msg.hasMedia) {
+                            const media = await msg.downloadMedia();
+                            return {
+                                fromMe: msg.fromMe,
+                                body: msg.body,
+                                timestamp: msg.timestamp,
+                                media: {
+                                    mimetype: media.mimetype,
+                                    data: media.data,
+                                },
+                            };
+                        } else if (msg.location) {
+                            return {
+                                fromMe: msg.fromMe,
+                                timestamp: msg.timestamp,
+                                location: {
+                                    latitude: msg.location.latitude,
+                                    longitude: msg.location.longitude,
+                                    description: msg.location.description || '',
+                                },
+                            };
+                        } else if (msg.type === 'contact_card') {
+                            return {
+                                fromMe: msg.fromMe,
+                                timestamp: msg.timestamp,
+                                contact: msg.vCard,
+                            };
+                        } else {
+                            return {
+                                fromMe: msg.fromMe,
+                                body: msg.body,
+                                timestamp: msg.timestamp,
+                            };
+                        }
+                    })
+                );
+
                 ws.send(JSON.stringify({
                     type: 'chatMessages',
                     chatId: data.chatId,
-                    messages: messages.map(msg => ({
-                        fromMe: msg.fromMe,
-                        body: msg.body,
-                        timestamp: msg.timestamp,
-                    })),
+                    messages: formattedMessages,
                 }));
             } catch (error) {
                 console.error('Mesajlar alınırken hata oluştu:', error);
@@ -155,10 +195,8 @@ app.post('/send', async (req, res) => {
     }
 
     try {
-        // Eğer `@c.us` postfix'i varsa formatlamaya gerek yok
         const formattedNumber = number.includes('@c.us') ? number : `${number}@c.us`;
 
-        // Mesaj gönder
         await client.sendMessage(formattedNumber, message);
         res.status(200).send({ success: true });
     } catch (error) {
@@ -166,19 +204,6 @@ app.post('/send', async (req, res) => {
         res.status(500).send({ error: error.message });
     }
 });
-
-// WebSocket yayın fonksiyonu
-function broadcast(data) {
-    wss.clients.forEach((ws) => {
-        if (ws.readyState === WebSocket.OPEN) {
-            try {
-                ws.send(JSON.stringify(data));
-            } catch (error) {
-                console.error('WebSocket mesajı gönderilirken hata:', error);
-            }
-        }
-    });
-}
 
 // QR kodu HTML olarak döndüren endpoint
 app.get('/qr', (req, res) => {
@@ -208,6 +233,19 @@ app.get('/qr', (req, res) => {
         `);
     }
 });
+
+// WebSocket yayın fonksiyonu
+function broadcast(data) {
+    wss.clients.forEach((ws) => {
+        if (ws.readyState === WebSocket.OPEN) {
+            try {
+                ws.send(JSON.stringify(data));
+            } catch (error) {
+                console.error('WebSocket mesajı gönderilirken hata:', error);
+            }
+        }
+    });
+}
 
 // Sunucu başlatma
 const PORT = process.env.PORT || 3000;
