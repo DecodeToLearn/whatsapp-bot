@@ -9,11 +9,16 @@ const app = express();
 const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
 
-app.use(cors({
-    origin: 'https://wp.clupfashion.com',
-    methods: ['GET', 'POST'],
-    credentials: true
-}));
+// CORS ayarları
+app.use(cors());
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    next();
+});
+
+app.use(bodyParser.json());
 
 // WhatsApp Client
 const client = new Client({
@@ -81,6 +86,18 @@ client.on('message', async (message) => {
                     },
                 });
             }
+        } else if (message.location) {
+            broadcast({
+                type: 'locationMessage',
+                from: message.from,
+                location: message.location,
+            });
+        } else if (message.type === 'contact_card') {
+            broadcast({
+                type: 'contactMessage',
+                from: message.from,
+                contact: message.vCard,
+            });
         } else {
             broadcast({
                 type: 'textMessage',
