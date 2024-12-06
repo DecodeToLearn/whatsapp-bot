@@ -155,7 +155,10 @@ app.post('/send', async (req, res) => {
     }
 
     try {
-        const formattedNumber = `${number}@c.us`;
+        // Eğer `@c.us` postfix'i varsa formatlamaya gerek yok
+        const formattedNumber = number.includes('@c.us') ? number : `${number}@c.us`;
+
+        // Mesaj gönder
         await client.sendMessage(formattedNumber, message);
         res.status(200).send({ success: true });
     } catch (error) {
