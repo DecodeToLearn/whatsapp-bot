@@ -4,6 +4,8 @@ const cors = require('cors');
 const express = require('express');
 const bodyParser = require('body-parser');
 const WebSocket = require('ws');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 const server = require('http').createServer(app);
@@ -43,6 +45,17 @@ const client = new Client({
 let qrCodeUrl = '';
 let contacts = [];
 
+// Medya dosyalarını geçici bir dizine kaydetme
+const saveMediaToFile = (media) => {
+    const dir = path.join(__dirname, 'temp');
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
+    const filePath = path.join(dir, `${Date.now()}-${Math.random().toString(36).substring(7)}`);
+    fs.writeFileSync(filePath, Buffer.from(media.data, 'base64'));
+    return filePath;
+};
+
 // QR kodu oluşturma ve WebSocket'e gönderme
 client.on('qr', async (qr) => {
     try {
@@ -74,7 +87,7 @@ client.on('disconnected', async (reason) => {
     console.log(`WhatsApp bağlantısı kesildi: ${reason}`);
     try {
         await client.destroy();
-        await client.initialize();
+        setTimeout(() => client.initialize(), 5000); // 5 saniye sonra yeniden başlat
     } catch (error) {
         console.error('Bağlantı yeniden başlatılamadı:', error);
     }
@@ -86,13 +99,14 @@ client.on('message', async (message) => {
         if (message.hasMedia) {
             const media = await message.downloadMedia();
             if (media) {
+                const filePath = saveMediaToFile(media);
                 broadcast({
                     type: 'mediaMessage',
                     from: message.from,
                     caption: message.caption || '',
                     media: {
                         mimetype: media.mimetype,
-                        data: media.data,
+                        url: filePath,
                     },
                 });
             }
@@ -148,13 +162,14 @@ wss.on('connection', (ws) => {
                     messages.map(async (msg) => {
                         if (msg.hasMedia) {
                             const media = await msg.downloadMedia();
+                            const filePath = saveMediaToFile(media);
                             return {
                                 fromMe: msg.fromMe,
                                 body: msg.body,
                                 timestamp: msg.timestamp,
                                 media: {
                                     mimetype: media.mimetype,
-                                    data: media.data,
+                                    url: filePath,
                                 },
                             };
                         } else if (msg.location) {
