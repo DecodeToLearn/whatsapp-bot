@@ -47,11 +47,16 @@ let contacts = [];
 
 // Medya dosyalarını geçici bir dizine kaydetme
 const saveMediaToFile = (media) => {
+    if (!media || !media.data) {
+        console.error("Medya verisi eksik.");
+        return null;
+    }
     const dir = path.join(__dirname, 'temp');
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
     }
-    const filePath = path.join(dir, `${Date.now()}-${Math.random().toString(36).substring(7)}`);
+    const fileExtension = media.mimetype.split('/')[1] || 'bin'; // Dosya uzantısını belirleme
+    const filePath = path.join(dir, `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`);
     fs.writeFileSync(filePath, Buffer.from(media.data, 'base64'));
     return filePath;
 };
