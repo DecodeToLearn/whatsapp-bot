@@ -48,7 +48,7 @@ let contacts = [];
 // Medya dosyalarını geçici bir dizine kaydetme
 const saveMediaToFile = (media) => {
     if (!media || !media.data) {
-        console.error("Medya verisi eksik.");
+        console.error('Medya verisi eksik.');
         return null;
     }
     const dir = path.join(__dirname, 'temp');
@@ -102,7 +102,10 @@ client.on('disconnected', async (reason) => {
 client.on('message', async (message) => {
     try {
         if (message.hasMedia) {
-            const media = await message.downloadMedia();
+            const media = await message.downloadMedia().catch((error) => {
+                console.error('Medya indirilemedi:', error);
+                return null;
+            });
             if (media) {
                 const filePath = saveMediaToFile(media);
                 broadcast({
@@ -166,17 +169,22 @@ wss.on('connection', (ws) => {
                 const formattedMessages = await Promise.all(
                     messages.map(async (msg) => {
                         if (msg.hasMedia) {
-                            const media = await msg.downloadMedia();
-                            const filePath = saveMediaToFile(media);
-                            return {
-                                fromMe: msg.fromMe,
-                                body: msg.body,
-                                timestamp: msg.timestamp,
-                                media: {
-                                    mimetype: media.mimetype,
-                                    url: filePath,
-                                },
-                            };
+                            const media = await msg.downloadMedia().catch((error) => {
+                                console.error('Medya indirilemedi:', error);
+                                return null;
+                            });
+                            if (media) {
+                                const filePath = saveMediaToFile(media);
+                                return {
+                                    fromMe: msg.fromMe,
+                                    body: msg.body,
+                                    timestamp: msg.timestamp,
+                                    media: {
+                                        mimetype: media.mimetype,
+                                        url: filePath,
+                                    },
+                                };
+                            }
                         } else if (msg.location) {
                             return {
                                 fromMe: msg.fromMe,
