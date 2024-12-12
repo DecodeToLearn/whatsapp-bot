@@ -12,7 +12,7 @@ const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
 
 // CORS ayarları
-app.use(cors({ origin: '*' })); // **Tüm kökenlerden gelen isteklere izin ver**
+app.use(cors({ origin: '*' }));
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
@@ -41,35 +41,15 @@ const client = new Client({
     },
 });
 
-// Global değişkenler
+// QR Kod ve Kontaklar
 let qrCodeUrl = '';
 let contacts = [];
 
-// Medya dosyalarını geçici bir dizine kaydetme
-const saveMediaToFile = (media) => {
-    if (!media || !media.data) {
-        console.error('Medya verisi eksik.');
-        return null;
-    }
-    const dir = path.join(__dirname, 'temp');
-    if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-    }
-    const fileExtension = media.mimetype.split('/')[1] || 'bin'; // Dosya uzantısını belirleme
-    const filePath = path.join(dir, `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`);
-    fs.writeFileSync(filePath, Buffer.from(media.data, 'base64'));
-    return filePath;
-};
-
-// QR kodu oluşturma ve WebSocket'e gönderme
+// QR kodu oluşturma
 client.on('qr', async (qr) => {
-    try {
-        qrCodeUrl = await qrcode.toDataURL(qr);
-        console.log('Yeni QR kodu alındı.');
-        broadcast({ type: 'qr', qrCode: qrCodeUrl });
-    } catch (error) {
-        console.error('QR kod oluşturma hatası:', error);
-    }
+    qrCodeUrl = await qrcode.toDataURL(qr);
+    console.log('Yeni QR kodu alındı.');
+    broadcast({ type: 'qr', qrCode: qrCodeUrl });
 });
 
 // WhatsApp bağlantısı kurulduğunda
@@ -80,7 +60,6 @@ client.on('ready', async () => {
             id: contact.id._serialized,
             name: contact.name || contact.pushname || contact.id.user,
         }));
-        console.log('Kontaklar alındı.');
         broadcast({ type: 'contacts', contacts });
     } catch (error) {
         console.error('Kontaklar alınırken hata oluştu:', error);
@@ -92,13 +71,13 @@ client.on('disconnected', async (reason) => {
     console.log(`WhatsApp bağlantısı kesildi: ${reason}`);
     try {
         await client.destroy();
-        setTimeout(() => client.initialize(), 5000); // 5 saniye sonra yeniden başlat
+        setTimeout(() => client.initialize(), 5000);
     } catch (error) {
         console.error('Bağlantı yeniden başlatılamadı:', error);
     }
 });
 
-// Mesaj alındığında WebSocket'e gönder
+// Mesaj alındığında işleme
 client.on('message', async (message) => {
     try {
         if (message.hasMedia) {
@@ -228,18 +207,23 @@ wss.on('connection', (ws) => {
 app.post('/send', async (req, res) => {
     const { number, caption, media } = req.body;
 
-    if (!number || !media) {
-        return res.status(400).send({ error: 'Numara ve medya gereklidir.' });
+    if (!number || (!caption && !media)) {
+        return res.status(400).send({ error: 'Numara ve mesaj veya medya bilgisi gereklidir.' });
     }
 
     try {
         const formattedNumber = number.includes('@c.us') ? number : `${number}@c.us`;
 
-        // Medya dosyasını gönder
-        if (media.type === 'image') {
-            await client.sendMessage(formattedNumber, media.path, { caption });
-        } else if (media.type === 'video') {
-            await client.sendMessage(formattedNumber, media.path, { caption });
+        // Medya veya mesaj gönderme
+        if (media && media.path) {
+            if (media.type === 'image' || media.type === 'video') {
+                const filePath = fs.readFileSync(media.path);
+                await client.sendMessage(formattedNumber, filePath, { caption });
+            } else {
+                return res.status(400).send({ error: 'Desteklenmeyen medya türü.' });
+            }
+        } else if (caption) {
+            await client.sendMessage(formattedNumber, caption);
         }
 
         res.status(200).send({ success: true });
@@ -249,7 +233,23 @@ app.post('/send', async (req, res) => {
     }
 });
 
-// QR kodu HTML olarak döndüren endpoint
+// Medya dosyasını geçici bir dizine kaydetme
+const saveMediaToFile = (media) => {
+    if (!media || !media.data) {
+        console.error('Medya verisi eksik.');
+        return null;
+    }
+    const dir = path.join(__dirname, 'temp');
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
+    const fileExtension = media.mimetype.split('/')[1] || 'bin';
+    const filePath = path.join(dir, `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`);
+    fs.writeFileSync(filePath, Buffer.from(media.data, 'base64'));
+    return filePath;
+};
+
+// QR Kod Endpoint
 app.get('/qr', (req, res) => {
     if (qrCodeUrl) {
         res.send(`
@@ -282,16 +282,12 @@ app.get('/qr', (req, res) => {
 function broadcast(data) {
     wss.clients.forEach((ws) => {
         if (ws.readyState === WebSocket.OPEN) {
-            try {
-                ws.send(JSON.stringify(data));
-            } catch (error) {
-                console.error('WebSocket mesajı gönderilirken hata:', error);
-            }
+            ws.send(JSON.stringify(data));
         }
     });
 }
 
-// Sunucu başlatma
+// Sunucuyu başlat
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Sunucu çalışıyor: http://localhost:${PORT}`);
