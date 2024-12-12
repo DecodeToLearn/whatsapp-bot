@@ -143,6 +143,37 @@ wss.on('connection', (ws) => {
 });
 
 // Mesaj Gönderme API'si
+/*app.post('/send', async (req, res) => {
+    const { number, caption, media } = req.body;
+
+    if (!number || (!caption && !media)) {
+        return res.status(400).json({ error: 'Numara ve mesaj veya medya gereklidir.' });
+    }
+
+    try {
+        const formattedNumber = number.includes('@c.us') ? number : `${number}@c.us`;
+
+        if (media && media.path) {
+            const mediaPath = await downloadMedia(media.path);
+            if (!mediaPath) {
+                return res.status(500).json({ error: 'Medya indirilemedi.' });
+            }
+
+            const messageMedia = MessageMedia.fromFilePath(mediaPath);
+            await client.sendMessage(formattedNumber, messageMedia, { caption });
+
+            fs.unlinkSync(mediaPath); // Geçici dosyayı sil
+        } else if (caption) {
+            await client.sendMessage(formattedNumber, caption);
+        }
+
+        res.status(200).json({ success: true });
+    } catch (error) {
+        console.error('Mesaj gönderilirken hata oluştu:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+*/
 app.post('/send', async (req, res) => {
     const { number, caption, media } = req.body;
 
@@ -170,34 +201,6 @@ app.post('/send', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-
-/*app.post('/send', async (req, res) => {
-    const { number, caption, media } = req.body;
-
-    if (!number) {
-        return res.status(400).json({ error: 'Numara gereklidir.' });
-    }
-
-    try {
-        const formattedNumber = number.includes('@c.us') ? number : `${number}@c.us`;
-
-        if (media && media.url) {
-            const mediaContent = await MessageMedia.fromUrl(media.url);
-            await client.sendMessage(formattedNumber, mediaContent, { caption });
-            console.log('URL üzerinden medya gönderildi:', media.url);
-        } else if (caption) {
-            await client.sendMessage(formattedNumber, caption);
-            console.log('Metin mesajı gönderildi:', caption);
-        } else {
-            return res.status(400).json({ error: 'Mesaj veya medya bilgisi gereklidir.' });
-        }
-
-        res.status(200).json({ success: true });
-    } catch (error) {
-        console.error('Mesaj gönderilirken hata oluştu:', error);
-        res.status(500).json({ error: error.message });
-    }
-});*/
 // Medya Dosyasını Geçici Bir Dizin'e Kaydetme
 const saveMediaToFile = (media) => {
     if (!media || !media.data) {
@@ -221,7 +224,6 @@ const downloadMedia = async (url) => {
             url,
             method: 'GET',
             responseType: 'arraybuffer',
-            timeout: 500000, // Zaman aşımı 10 saniye
         });
 
         const dir = path.join(__dirname, 'temp');
@@ -234,7 +236,7 @@ const downloadMedia = async (url) => {
         fs.writeFileSync(filePath, response.data);
         return filePath;
     } catch (error) {
-        console.error('Medya indirilemedi:', error.message);
+        console.error('Medya indirilemedi:', error);
         return null;
     }
 };
