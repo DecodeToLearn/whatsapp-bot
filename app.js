@@ -13,9 +13,10 @@ const wss = new WebSocket.Server({ server });
 
 // CORS ayarları
 const corsOptions = {
-    origin: '*', // Tüm kaynaklara izin ver
-    methods: ['GET', 'POST', 'PUT', 'DELETE'], // İzin verilen yöntemler
-    allowedHeaders: ['Content-Type', 'Authorization'], // İzin verilen başlıklar
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
 };
 
 app.use(cors(corsOptions));
@@ -26,6 +27,7 @@ app.use((req, res, next) => {
     res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
     next();
 });
+
 
 
 app.use(bodyParser.json());
