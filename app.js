@@ -146,30 +146,27 @@ wss.on('connection', (ws) => {
 app.post('/send', async (req, res) => {
     const { number, caption, media } = req.body;
 
-    if (!number || (!caption && !media)) {
-        return res.status(400).json({ error: 'Numara ve mesaj veya medya gereklidir.' });
+    if (!number) {
+        return res.status(400).json({ error: 'Numara gereklidir.' });
     }
 
     try {
         const formattedNumber = number.includes('@c.us') ? number : `${number}@c.us`;
 
         if (media && media.url) {
-            const mediaPath = await downloadMedia(media.url);
-            if (!mediaPath) {
-                return res.status(500).json({ error: 'Medya indirilemedi.' });
-            }
-
-            const messageMedia = MessageMedia.fromFilePath(mediaPath);
-            await client.sendMessage(formattedNumber, messageMedia, { caption });
-
-            fs.unlinkSync(mediaPath); // Geçici dosyayı sil
+            const mediaContent = await MessageMedia.fromUrl(media.url);
+            await client.sendMessage(formattedNumber, mediaContent, { caption });
+            console.log('URL üzerinden medya gönderildi:', media.url);
         } else if (caption) {
             await client.sendMessage(formattedNumber, caption);
+            console.log('Metin mesajı gönderildi:', caption);
+        } else {
+            return res.status(400).json({ error: 'Mesaj veya medya bilgisi gereklidir.' });
         }
 
         res.status(200).json({ success: true });
     } catch (error) {
-        console.error('Mesaj gönderilirken hata oluştu:', error.message);
+        console.error('Mesaj gönderilirken hata oluştu:', error);
         res.status(500).json({ error: error.message });
     }
 });
