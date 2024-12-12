@@ -41,15 +41,19 @@ const client = new Client({
     },
 });
 
-// QR Kod ve Kontaklar
+// Global değişkenler
 let qrCodeUrl = '';
 let contacts = [];
 
-// QR kodu oluşturma
+// QR kodu oluşturma ve yayınlama
 client.on('qr', async (qr) => {
-    qrCodeUrl = await qrcode.toDataURL(qr);
-    console.log('Yeni QR kodu alındı.');
-    broadcast({ type: 'qr', qrCode: qrCodeUrl });
+    try {
+        qrCodeUrl = await qrcode.toDataURL(qr);
+        console.log('QR kodu oluşturuldu.');
+        broadcast({ type: 'qr', qrCode: qrCodeUrl });
+    } catch (error) {
+        console.error('QR kodu oluşturulurken hata:', error);
+    }
 });
 
 // WhatsApp bağlantısı kurulduğunda
@@ -62,11 +66,11 @@ client.on('ready', async () => {
         }));
         broadcast({ type: 'contacts', contacts });
     } catch (error) {
-        console.error('Kontaklar alınırken hata oluştu:', error);
+        console.error('Kontaklar alınırken hata:', error);
     }
 });
 
-// WhatsApp bağlantısı kesildiğinde
+// WhatsApp bağlantısı kesildiğinde yeniden başlatma
 client.on('disconnected', async (reason) => {
     console.log(`WhatsApp bağlantısı kesildi: ${reason}`);
     try {
@@ -77,14 +81,11 @@ client.on('disconnected', async (reason) => {
     }
 });
 
-// Mesaj alındığında işleme
+// Gelen mesajları işleme
 client.on('message', async (message) => {
     try {
         if (message.hasMedia) {
-            const media = await message.downloadMedia().catch((error) => {
-                console.error('Medya indirilemedi:', error);
-                return null;
-            });
+            const media = await message.downloadMedia();
             if (media) {
                 const filePath = saveMediaToFile(media);
                 broadcast({
@@ -97,7 +98,7 @@ client.on('message', async (message) => {
                     },
                 });
             }
-        } else if (message.location) {
+        } else if (message.type === 'location') {
             broadcast({
                 type: 'locationMessage',
                 from: message.from,
@@ -121,7 +122,7 @@ client.on('message', async (message) => {
             });
         }
     } catch (error) {
-        console.error('Mesaj işleme sırasında hata:', error);
+        console.error('Mesaj işlenirken hata:', error);
     }
 });
 
@@ -136,71 +137,6 @@ wss.on('connection', (ws) => {
     if (contacts.length) {
         ws.send(JSON.stringify({ type: 'contacts', contacts }));
     }
-
-    ws.on('message', async (message) => {
-        const data = JSON.parse(message);
-
-        if (data.type === 'fetchMessages') {
-            try {
-                const chat = await client.getChatById(data.chatId);
-                const messages = await chat.fetchMessages({ limit: 50 });
-
-                const formattedMessages = await Promise.all(
-                    messages.map(async (msg) => {
-                        if (msg.hasMedia) {
-                            const media = await msg.downloadMedia().catch((error) => {
-                                console.error('Medya indirilemedi:', error);
-                                return null;
-                            });
-                            if (media) {
-                                const filePath = saveMediaToFile(media);
-                                return {
-                                    fromMe: msg.fromMe,
-                                    body: msg.body,
-                                    timestamp: msg.timestamp,
-                                    media: {
-                                        mimetype: media.mimetype,
-                                        url: filePath,
-                                    },
-                                };
-                            }
-                        } else if (msg.location) {
-                            return {
-                                fromMe: msg.fromMe,
-                                timestamp: msg.timestamp,
-                                location: {
-                                    latitude: msg.location.latitude,
-                                    longitude: msg.location.longitude,
-                                    description: msg.location.description || '',
-                                },
-                            };
-                        } else if (msg.type === 'contact_card') {
-                            return {
-                                fromMe: msg.fromMe,
-                                timestamp: msg.timestamp,
-                                contact: msg.vCard,
-                            };
-                        } else {
-                            return {
-                                fromMe: msg.fromMe,
-                                body: msg.body,
-                                timestamp: msg.timestamp,
-                            };
-                        }
-                    })
-                );
-
-                ws.send(JSON.stringify({
-                    type: 'chatMessages',
-                    chatId: data.chatId,
-                    messages: formattedMessages,
-                }));
-            } catch (error) {
-                console.error('Mesajlar alınırken hata oluştu:', error);
-                ws.send(JSON.stringify({ type: 'error', error: error.message }));
-            }
-        }
-    });
 });
 
 // Mesaj gönderme API'si
@@ -208,17 +144,16 @@ app.post('/send', async (req, res) => {
     const { number, caption, media } = req.body;
 
     if (!number || (!caption && !media)) {
-        return res.status(400).send({ error: 'Numara ve mesaj veya medya bilgisi gereklidir.' });
+        return res.status(400).send({ error: 'Numara ve mesaj veya medya gereklidir.' });
     }
 
     try {
         const formattedNumber = number.includes('@c.us') ? number : `${number}@c.us`;
 
-        // Medya veya mesaj gönderme
         if (media && media.path) {
+            const mediaPath = path.resolve(media.path);
             if (media.type === 'image' || media.type === 'video') {
-                const filePath = fs.readFileSync(media.path);
-                await client.sendMessage(formattedNumber, filePath, { caption });
+                await client.sendMessage(formattedNumber, fs.readFileSync(mediaPath), { caption });
             } else {
                 return res.status(400).send({ error: 'Desteklenmeyen medya türü.' });
             }
@@ -249,7 +184,7 @@ const saveMediaToFile = (media) => {
     return filePath;
 };
 
-// QR Kod Endpoint
+// QR Kod EndPoint
 app.get('/qr', (req, res) => {
     if (qrCodeUrl) {
         res.send(`
