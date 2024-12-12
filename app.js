@@ -164,7 +164,10 @@ app.post('/send', async (req, res) => {
         if (media && media.path) {
             const mediaPath = path.resolve(media.path);
             if (media.type === 'image' || media.type === 'video') {
-                await client.sendMessage(formattedNumber, fs.readFileSync(mediaPath), { caption });
+                await client.sendMessage(formattedNumber, {
+                    media: fs.readFileSync(mediaPath), 
+                    caption,
+                });
             } else {
                 return res.status(400).json({ error: 'Desteklenmeyen medya türü.' });
             }
