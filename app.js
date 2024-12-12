@@ -12,13 +12,21 @@ const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
 
 // CORS ayarları
-app.use(cors({ origin: '*' }));
+const corsOptions = {
+    origin: '*', // Tüm kaynaklara izin ver
+    methods: ['GET', 'POST', 'PUT', 'DELETE'], // İzin verilen yöntemler
+    allowedHeaders: ['Content-Type', 'Authorization'], // İzin verilen başlıklar
+};
+
+app.use(cors(corsOptions));
+
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
     next();
 });
+
 
 app.use(bodyParser.json());
 
@@ -140,11 +148,12 @@ wss.on('connection', (ws) => {
 });
 
 // Mesaj gönderme API'si
+
 app.post('/send', async (req, res) => {
     const { number, caption, media } = req.body;
 
     if (!number || (!caption && !media)) {
-        return res.status(400).send({ error: 'Numara ve mesaj veya medya gereklidir.' });
+        return res.status(400).json({ error: 'Numara ve mesaj veya medya gereklidir.' });
     }
 
     try {
@@ -155,18 +164,19 @@ app.post('/send', async (req, res) => {
             if (media.type === 'image' || media.type === 'video') {
                 await client.sendMessage(formattedNumber, fs.readFileSync(mediaPath), { caption });
             } else {
-                return res.status(400).send({ error: 'Desteklenmeyen medya türü.' });
+                return res.status(400).json({ error: 'Desteklenmeyen medya türü.' });
             }
         } else if (caption) {
             await client.sendMessage(formattedNumber, caption);
         }
 
-        res.status(200).send({ success: true });
+        res.status(200).json({ success: true });
     } catch (error) {
         console.error('Mesaj gönderilirken hata oluştu:', error);
-        res.status(500).send({ error: error.message });
+        res.status(500).json({ error: error.message });
     }
 });
+
 
 // Medya dosyasını geçici bir dizine kaydetme
 const saveMediaToFile = (media) => {
