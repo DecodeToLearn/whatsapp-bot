@@ -143,7 +143,7 @@ wss.on('connection', (ws) => {
 });
 
 // Mesaj Gönderme API'si
-app.post('/send', async (req, res) => {
+/*app.post('/send', async (req, res) => {
     const { number, caption, media } = req.body;
 
     if (!number || (!caption && !media)) {
@@ -173,8 +173,23 @@ app.post('/send', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+*/
 
-/*app.post('/send', async (req, res) => {
+const checkMediaSize = async (url) => {
+    try {
+        const response = await axios.head(url);
+        const contentLength = response.headers['content-length'];
+        if (contentLength > 16 * 1024 * 1024) {
+            console.error('Medya dosyası 16 MB sınırını aşıyor.');
+            return false;
+        }
+        return true;
+    } catch (error) {
+        console.error('Medya boyutu kontrol edilirken hata:', error);
+        return false;
+    }
+};
+app.post('/send', async (req, res) => {
     const { number, caption, media } = req.body;
 
     if (!number) {
@@ -185,10 +200,18 @@ app.post('/send', async (req, res) => {
         const formattedNumber = number.includes('@c.us') ? number : `${number}@c.us`;
 
         if (media && media.url) {
+            // Medya boyutunu kontrol et
+            const isValidSize = await checkMediaSize(media.url);
+            if (!isValidSize) {
+                return res.status(400).json({ error: 'Medya dosyası 16 MB sınırını aşıyor.' });
+            }
+
+            // Medya URL'sini indir ve gönder
             const mediaContent = await MessageMedia.fromUrl(media.url);
             await client.sendMessage(formattedNumber, mediaContent, { caption });
             console.log('URL üzerinden medya gönderildi:', media.url);
         } else if (caption) {
+            // Sadece metin mesajı gönder
             await client.sendMessage(formattedNumber, caption);
             console.log('Metin mesajı gönderildi:', caption);
         } else {
@@ -200,7 +223,8 @@ app.post('/send', async (req, res) => {
         console.error('Mesaj gönderilirken hata oluştu:', error);
         res.status(500).json({ error: error.message });
     }
-});*/
+});
+
 // Medya Dosyasını Geçici Bir Dizin'e Kaydetme
 const saveMediaToFile = (media) => {
     if (!media || !media.data) {
