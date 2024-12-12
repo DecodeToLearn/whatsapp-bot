@@ -153,8 +153,8 @@ app.post('/send', async (req, res) => {
     try {
         const formattedNumber = number.includes('@c.us') ? number : `${number}@c.us`;
 
-        if (media && media.path) {
-            const mediaPath = await downloadMedia(media.path);
+        if (media && media.url) {
+            const mediaPath = await downloadMedia(media.url);
             if (!mediaPath) {
                 return res.status(500).json({ error: 'Medya indirilemedi.' });
             }
@@ -169,7 +169,7 @@ app.post('/send', async (req, res) => {
 
         res.status(200).json({ success: true });
     } catch (error) {
-        console.error('Mesaj gönderilirken hata oluştu:', error);
+        console.error('Mesaj gönderilirken hata oluştu:', error.message);
         res.status(500).json({ error: error.message });
     }
 });
@@ -224,6 +224,7 @@ const downloadMedia = async (url) => {
             url,
             method: 'GET',
             responseType: 'arraybuffer',
+            timeout: 500000, // Zaman aşımı 10 saniye
         });
 
         const dir = path.join(__dirname, 'temp');
@@ -236,7 +237,7 @@ const downloadMedia = async (url) => {
         fs.writeFileSync(filePath, response.data);
         return filePath;
     } catch (error) {
-        console.error('Medya indirilemedi:', error);
+        console.error('Medya indirilemedi:', error.message);
         return null;
     }
 };
