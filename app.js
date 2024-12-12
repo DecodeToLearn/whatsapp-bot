@@ -143,7 +143,7 @@ wss.on('connection', (ws) => {
 });
 
 // Mesaj Gönderme API'si
-/*app.post('/send', async (req, res) => {
+app.post('/send', async (req, res) => {
     const { number, caption, media } = req.body;
 
     if (!number || (!caption && !media)) {
@@ -173,8 +173,8 @@ wss.on('connection', (ws) => {
         res.status(500).json({ error: error.message });
     }
 });
-*/
-app.post('/send', async (req, res) => {
+
+/*app.post('/send', async (req, res) => {
     const { number, caption, media } = req.body;
 
     if (!number) {
@@ -200,7 +200,7 @@ app.post('/send', async (req, res) => {
         console.error('Mesaj gönderilirken hata oluştu:', error);
         res.status(500).json({ error: error.message });
     }
-});
+});*/
 // Medya Dosyasını Geçici Bir Dizin'e Kaydetme
 const saveMediaToFile = (media) => {
     if (!media || !media.data) {
