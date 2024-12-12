@@ -1,42 +1,27 @@
-const { Client, LocalAuth } = require('whatsapp-web.js');
+const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
 const cors = require('cors');
 const express = require('express');
 const bodyParser = require('body-parser');
 const WebSocket = require('ws');
+const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
 const app = express();
 const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
+
 const corsOptions = {
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
     preflightContinue: false,
-    optionsSuccessStatus: 204
+    optionsSuccessStatus: 204,
 };
 
 app.use(cors(corsOptions));
-
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
-    next();
-});
-
-app.options('*', cors(corsOptions));
-
-// Loglama middleware'i
-app.use((req, res, next) => {
-    console.log('Gelen istek:', req.method, req.url);
-    console.log('Başlıklar:', req.headers);
-    next();
-});
-
 app.use(bodyParser.json());
 
 // WhatsApp Client
@@ -58,11 +43,11 @@ const client = new Client({
     },
 });
 
-// Global değişkenler
+// Global Değişkenler
 let qrCodeUrl = '';
 let contacts = [];
 
-// QR kodu oluşturma ve yayınlama
+// QR Kod Oluşturma ve Yayınlama
 client.on('qr', async (qr) => {
     try {
         qrCodeUrl = await qrcode.toDataURL(qr);
@@ -73,7 +58,7 @@ client.on('qr', async (qr) => {
     }
 });
 
-// WhatsApp bağlantısı kurulduğunda
+// WhatsApp Bağlantısı Kurulduğunda
 client.on('ready', async () => {
     console.log('WhatsApp botu hazır.');
     try {
@@ -87,19 +72,20 @@ client.on('ready', async () => {
     }
 });
 
-// WhatsApp bağlantısı kesildiğinde yeniden başlatma
+// WhatsApp Bağlantısı Kesildiğinde
 client.on('disconnected', async (reason) => {
     console.log(`WhatsApp bağlantısı kesildi: ${reason}`);
     try {
         await client.destroy();
-        setTimeout(() => client.initialize(), 5000);
+        setTimeout(() => client.initialize(), 5000); // 5 saniye sonra yeniden başlat
     } catch (error) {
         console.error('Bağlantı yeniden başlatılamadı:', error);
     }
 });
 
-// Gelen mesajları işleme
+// Mesaj Alındığında İşleme
 client.on('message', async (message) => {
+    console.log(`Mesaj Alındı: ${message.body}`);
     try {
         if (message.hasMedia) {
             const media = await message.downloadMedia();
@@ -115,7 +101,7 @@ client.on('message', async (message) => {
                     },
                 });
             }
-        } else if (message.type === 'location') {
+        } else if (message.location) {
             broadcast({
                 type: 'locationMessage',
                 from: message.from,
@@ -143,7 +129,7 @@ client.on('message', async (message) => {
     }
 });
 
-// WebSocket bağlantılarını yönetme
+// WebSocket Bağlantılarını Yönetme
 wss.on('connection', (ws) => {
     console.log('Yeni bir WebSocket bağlantısı kuruldu.');
 
@@ -156,8 +142,7 @@ wss.on('connection', (ws) => {
     }
 });
 
-// Mesaj gönderme API'si
-
+// Mesaj Gönderme API'si
 app.post('/send', async (req, res) => {
     const { number, caption, media } = req.body;
 
@@ -169,15 +154,15 @@ app.post('/send', async (req, res) => {
         const formattedNumber = number.includes('@c.us') ? number : `${number}@c.us`;
 
         if (media && media.path) {
-            const mediaPath = path.resolve(media.path);
-            if (media.type === 'image' || media.type === 'video') {
-                await client.sendMessage(formattedNumber, {
-                    media: fs.readFileSync(mediaPath), 
-                    caption,
-                });
-            } else {
-                return res.status(400).json({ error: 'Desteklenmeyen medya türü.' });
+            const mediaPath = await downloadMedia(media.path);
+            if (!mediaPath) {
+                return res.status(500).json({ error: 'Medya indirilemedi.' });
             }
+
+            const messageMedia = MessageMedia.fromFilePath(mediaPath);
+            await client.sendMessage(formattedNumber, messageMedia, { caption });
+
+            fs.unlinkSync(mediaPath); // Geçici dosyayı sil
         } else if (caption) {
             await client.sendMessage(formattedNumber, caption);
         }
@@ -189,8 +174,7 @@ app.post('/send', async (req, res) => {
     }
 });
 
-
-// Medya dosyasını geçici bir dizine kaydetme
+// Medya Dosyasını Geçici Bir Dizin'e Kaydetme
 const saveMediaToFile = (media) => {
     if (!media || !media.data) {
         console.error('Medya verisi eksik.');
@@ -206,7 +190,31 @@ const saveMediaToFile = (media) => {
     return filePath;
 };
 
-// QR Kod EndPoint
+// URL'den Medya İndirme
+const downloadMedia = async (url) => {
+    try {
+        const response = await axios({
+            url,
+            method: 'GET',
+            responseType: 'arraybuffer',
+        });
+
+        const dir = path.join(__dirname, 'temp');
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+
+        const extension = path.extname(url).split('?')[0] || '.bin';
+        const filePath = path.join(dir, `${Date.now()}-${Math.random().toString(36).substring(7)}${extension}`);
+        fs.writeFileSync(filePath, response.data);
+        return filePath;
+    } catch (error) {
+        console.error('Medya indirilemedi:', error);
+        return null;
+    }
+};
+
+// QR Kod Endpoint
 app.get('/qr', (req, res) => {
     if (qrCodeUrl) {
         res.send(`
@@ -235,7 +243,7 @@ app.get('/qr', (req, res) => {
     }
 });
 
-// WebSocket yayın fonksiyonu
+// WebSocket Yayın Fonksiyonu
 function broadcast(data) {
     wss.clients.forEach((ws) => {
         if (ws.readyState === WebSocket.OPEN) {
@@ -244,7 +252,7 @@ function broadcast(data) {
     });
 }
 
-// Sunucuyu başlat
+// Sunucuyu Başlat
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Sunucu çalışıyor: http://localhost:${PORT}`);
