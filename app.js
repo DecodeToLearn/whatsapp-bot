@@ -226,16 +226,22 @@ wss.on('connection', (ws) => {
 
 // Mesaj gönderme API'si
 app.post('/send', async (req, res) => {
-    const { number, message } = req.body;
+    const { number, caption, media } = req.body;
 
-    if (!number || !message) {
-        return res.status(400).send({ error: 'Numara ve mesaj gereklidir.' });
+    if (!number || !media) {
+        return res.status(400).send({ error: 'Numara ve medya gereklidir.' });
     }
 
     try {
         const formattedNumber = number.includes('@c.us') ? number : `${number}@c.us`;
 
-        await client.sendMessage(formattedNumber, message);
+        // Medya dosyasını gönder
+        if (media.type === 'image') {
+            await client.sendMessage(formattedNumber, media.path, { caption });
+        } else if (media.type === 'video') {
+            await client.sendMessage(formattedNumber, media.path, { caption });
+        }
+
         res.status(200).send({ success: true });
     } catch (error) {
         console.error('Mesaj gönderilirken hata oluştu:', error);
