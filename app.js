@@ -14,20 +14,12 @@ const corsOptions = {
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
     preflightContinue: false,
     optionsSuccessStatus: 204
 };
 
 app.use(cors(corsOptions));
-
-// Loglama middleware'i
-app.use((req, res, next) => {
-    console.log('Gelen istek:', req.method, req.url);
-    console.log('Başlıklar:', req.headers);
-    next();
-});
-
-app.use(bodyParser.json());
 
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
@@ -37,6 +29,15 @@ app.use((req, res, next) => {
 });
 
 app.options('*', cors(corsOptions));
+
+// Loglama middleware'i
+app.use((req, res, next) => {
+    console.log('Gelen istek:', req.method, req.url);
+    console.log('Başlıklar:', req.headers);
+    next();
+});
+
+app.use(bodyParser.json());
 
 // WhatsApp Client
 const client = new Client({
