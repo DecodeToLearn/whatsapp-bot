@@ -40,6 +40,7 @@ const client = new Client({
             '--disable-gpu',
         ],
         defaultViewport: null,
+        timeout: 60000,
     },
 });
 
