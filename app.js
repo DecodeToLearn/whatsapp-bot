@@ -143,7 +143,7 @@ wss.on('connection', (ws) => {
 });
 
 // Mesaj Gönderme API'si
-/*app.post('/send', async (req, res) => {
+app.post('/send', async (req, res) => {
     const { number, caption, media } = req.body;
 
     if (!number || (!caption && !media)) {
@@ -153,8 +153,8 @@ wss.on('connection', (ws) => {
     try {
         const formattedNumber = number.includes('@c.us') ? number : `${number}@c.us`;
 
-        if (media && media.path) {
-            const mediaPath = await downloadMedia(media.path);
+        if (media && media.url) {
+            const mediaPath = await downloadMedia(media.url);
             if (!mediaPath) {
                 return res.status(500).json({ error: 'Medya indirilemedi.' });
             }
@@ -169,12 +169,12 @@ wss.on('connection', (ws) => {
 
         res.status(200).json({ success: true });
     } catch (error) {
-        console.error('Mesaj gönderilirken hata oluştu:', error);
+        console.error('Mesaj gönderilirken hata oluştu:', error.message);
         res.status(500).json({ error: error.message });
     }
 });
-*/
-app.post('/send', async (req, res) => {
+
+/*app.post('/send', async (req, res) => {
     const { number, caption, media } = req.body;
 
     if (!number) {
@@ -200,7 +200,7 @@ app.post('/send', async (req, res) => {
         console.error('Mesaj gönderilirken hata oluştu:', error);
         res.status(500).json({ error: error.message });
     }
-});
+});*/
 // Medya Dosyasını Geçici Bir Dizin'e Kaydetme
 const saveMediaToFile = (media) => {
     if (!media || !media.data) {
@@ -224,6 +224,7 @@ const downloadMedia = async (url) => {
             url,
             method: 'GET',
             responseType: 'arraybuffer',
+            timeout: 500000, // Zaman aşımı 10 saniye
         });
 
         const dir = path.join(__dirname, 'temp');
@@ -236,7 +237,7 @@ const downloadMedia = async (url) => {
         fs.writeFileSync(filePath, response.data);
         return filePath;
     } catch (error) {
-        console.error('Medya indirilemedi:', error);
+        console.error('Medya indirilemedi:', error.message);
         return null;
     }
 };
