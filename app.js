@@ -272,7 +272,57 @@ app.get('/groups', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+//********** Broadcast Start */
+// Broadcast Oluşturma
+app.post('/create-broadcast', async (req, res) => {
+    const { broadcastName, contacts } = req.body;
 
+    if (!broadcastName || !contacts || !contacts.length) {
+        return res.status(400).json({ error: 'Broadcast adı ve kişiler gerekli.' });
+    }
+
+    try {
+        const chatIds = contacts.map(number => `${number}@c.us`);
+        const broadcastList = await client.createBroadcastList(chatIds, broadcastName);
+        res.status(200).json({ success: true, broadcastId: broadcastList.id._serialized });
+    } catch (error) {
+        console.error('Broadcast oluşturulurken hata:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Broadcast Listesi Getirme
+app.get('/broadcasts', async (req, res) => {
+    try {
+        const chats = await client.getChats();
+        const broadcasts = chats.filter(chat => chat.isBroadcast).map(broadcast => ({
+            id: broadcast.id._serialized,
+            name: broadcast.name
+        }));
+        res.status(200).json({ broadcasts });
+    } catch (error) {
+        console.error('Broadcast listeleri alınırken hata:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Broadcast Mesaj Gönderme
+app.post('/send-broadcast-message', async (req, res) => {
+    const { broadcastId, message } = req.body;
+
+    if (!broadcastId || !message) {
+        return res.status(400).json({ error: 'Broadcast ID ve mesaj gerekli.' });
+    }
+
+    try {
+        await client.sendMessage(broadcastId, message);
+        res.status(200).json({ success: true });
+    } catch (error) {
+        console.error('Broadcast mesaj gönderilirken hata:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+//***********Broadcast End */
 app.post('/send-group-message', async (req, res) => {
     const { groupId, message } = req.body;
 
