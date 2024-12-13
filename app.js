@@ -369,6 +369,36 @@ app.post('/send-broadcast-message', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+
+
+app.post('/send-message-by-chat-name', async (req, res) => {
+    const { chatName, message } = req.body;
+
+    if (!chatName || !message) {
+        return res.status(400).json({ error: 'Chat adı ve mesaj gereklidir.' });
+    }
+
+    try {
+        // Tüm sohbetleri al
+        const chats = await client.getChats();
+
+        // Chat adı eşleşen sohbeti bul
+        const targetChat = chats.find(chat => chat.name && chat.name === chatName);
+
+        if (!targetChat) {
+            return res.status(404).json({ error: `Chat '${chatName}' bulunamadı.` });
+        }
+
+        // Mesaj gönder
+        await client.sendMessage(targetChat.id._serialized, message);
+        res.status(200).json({ success: true, chatId: targetChat.id._serialized });
+    } catch (error) {
+        console.error('Mesaj gönderilirken hata:', error.message);
+        res.status(500).json({ error: `Sunucu hatası: ${error.message}` });
+    }
+});
+
 //***********Broadcast End */
 app.post('/send-group-message', async (req, res) => {
     const { groupId, message } = req.body;
