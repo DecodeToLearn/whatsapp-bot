@@ -274,7 +274,7 @@ app.get('/groups', async (req, res) => {
 });
 //********** Broadcast Start */
 // Broadcast Oluşturma
-app.post('/create-broadcast', async (req, res) => {
+/*app.post('/create-broadcast', async (req, res) => {
     const { broadcastName, contacts } = req.body;
 
     if (!broadcastName || !contacts || !contacts.length) {
@@ -303,7 +303,7 @@ app.post('/create-broadcast', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-
+*/
 // Broadcast Listesi Getirme
 /*app.get('/broadcasts', async (req, res) => {
     try {
@@ -332,20 +332,25 @@ app.post('/create-broadcast', async (req, res) => {
 
 app.get('/broadcasts', async (req, res) => {
     try {
-        const chats = await client.getChats(); // Tüm sohbetleri al
-        const broadcasts = chats.filter(chat => chat.isBroadcast); // Yayın listelerini filtrele
+        const contacts = await client.getContacts(); // Tüm kişiler
+        const broadcasts = contacts
+            .filter(contact => contact.name && contact.name.includes('toplu')) // 'toplu' kelimesini içerenleri filtrele
+            .map(contact => ({
+                id: contact.id._serialized, // Broadcast ID
+                name: contact.name // Broadcast Adı
+            }));
 
-        const formattedBroadcasts = broadcasts.map(broadcast => ({
-            id: broadcast.id._serialized,
-            name: broadcast.name || 'Broadcast',
-        }));
+        if (broadcasts.length === 0) {
+            return res.status(200).json({ message: 'Broadcast bulunamadı.' });
+        }
 
-        res.status(200).json({ broadcasts: formattedBroadcasts });
+        res.status(200).json({ broadcasts });
     } catch (error) {
         console.error('Broadcast listesi alınırken hata:', error.message);
         res.status(500).json({ error: `Sunucu hatası: ${error.message}` });
     }
 });
+
 
 
 // Broadcast Mesaj Gönderme
