@@ -283,8 +283,21 @@ app.post('/create-broadcast', async (req, res) => {
 
     try {
         const chatIds = contacts.map(number => `${number}@c.us`);
-        const broadcastList = await client.createBroadcastList(chatIds, broadcastName);
-        res.status(200).json({ success: true, broadcastId: broadcastList.id._serialized });
+        const broadcastList = {
+            id: Date.now().toString(),
+            name: broadcastName,
+            contacts: chatIds
+        };
+
+        const filePath = path.join(__dirname, 'broadcasts.json');
+        let broadcastData = [];
+        if (fs.existsSync(filePath)) {
+            broadcastData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+        }
+        broadcastData.push(broadcastList);
+        fs.writeFileSync(filePath, JSON.stringify(broadcastData, null, 2));
+
+        res.status(200).json({ success: true, broadcastId: broadcastList.id });
     } catch (error) {
         console.error('Broadcast oluşturulurken hata:', error.message);
         res.status(500).json({ error: error.message });
@@ -305,7 +318,6 @@ app.get('/broadcasts', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-
 // Broadcast Mesaj Gönderme
 app.post('/send-broadcast-message', async (req, res) => {
     const { broadcastId, message } = req.body;
