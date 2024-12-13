@@ -305,7 +305,7 @@ app.post('/create-broadcast', async (req, res) => {
 });
 
 // Broadcast Listesi Getirme
-app.get('/broadcasts', async (req, res) => {
+/*app.get('/broadcasts', async (req, res) => {
     try {
         const chats = await client.getChats();
         if (!chats) {
@@ -328,7 +328,23 @@ app.get('/broadcasts', async (req, res) => {
         console.error('Broadcast listeleri alınırken hata:', error.message);
         res.status(500).json({ error: 'Sunucu hatası: ' + error.message });
     }
+});*/
+
+app.get('/broadcasts', async (req, res) => {
+    try {
+        const broadcasts = await client.getBroadcasts(); // Broadcast listelerini al
+        const formattedBroadcasts = broadcasts.map((broadcast) => ({
+            id: broadcast.id._serialized,
+            name: broadcast.name || 'Unknown Name',
+        }));
+
+        res.status(200).json({ broadcasts: formattedBroadcasts });
+    } catch (error) {
+        console.error('Broadcast listesi alınırken hata:', error.message);
+        res.status(500).json({ error: `Sunucu hatası: ${error.message}` });
+    }
 });
+
 
 // Broadcast Mesaj Gönderme
 app.post('/send-broadcast-message', async (req, res) => {
