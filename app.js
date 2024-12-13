@@ -427,6 +427,33 @@ app.post('/send-test-message', async (req, res) => {
     }
 });
 //***********Broadcast End */
+
+app.post('/send-group-media', async (req, res) => {
+    const { groupId, caption, mediaUrl } = req.body;
+
+    if (!groupId || !mediaUrl) {
+        return res.status(400).json({ error: 'Grup ID ve medya URL gereklidir.' });
+    }
+
+    try {
+        // Medya dosyasını indir
+        const mediaResponse = await axios.get(mediaUrl, { responseType: 'arraybuffer' });
+        const mediaBuffer = Buffer.from(mediaResponse.data, 'binary');
+        const mimeType = mediaResponse.headers['content-type'];
+
+        // Medya mesajını oluştur
+        const media = new MessageMedia(mimeType, mediaBuffer.toString('base64'));
+
+        // Mesajı gruba gönder
+        await client.sendMessage(groupId, media, { caption });
+
+        res.status(200).json({ success: true, message: 'Medya mesajı başarıyla gönderildi.' });
+    } catch (error) {
+        console.error('Medya mesajı gönderilirken hata:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.post('/send-group-message', async (req, res) => {
     const { groupId, message } = req.body;
 
