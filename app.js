@@ -308,16 +308,28 @@ app.post('/create-broadcast', async (req, res) => {
 app.get('/broadcasts', async (req, res) => {
     try {
         const chats = await client.getChats();
-        const broadcasts = chats.filter(chat => chat.isBroadcast).map(broadcast => ({
-            id: broadcast.id._serialized,
-            name: broadcast.name
-        }));
+        if (!chats) {
+            return res.status(404).json({ error: 'Chat listesi bulunamadı.' });
+        }
+
+        const broadcasts = chats
+            .filter(chat => chat.isBroadcast)
+            .map(broadcast => ({
+                id: broadcast.id._serialized,
+                name: broadcast.name || 'Broadcast List'
+            }));
+        
+        if (broadcasts.length === 0) {
+            return res.status(404).json({ error: 'Mevcut broadcast bulunamadı.' });
+        }
+
         res.status(200).json({ broadcasts });
     } catch (error) {
         console.error('Broadcast listeleri alınırken hata:', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Sunucu hatası: ' + error.message });
     }
 });
+
 // Broadcast Mesaj Gönderme
 app.post('/send-broadcast-message', async (req, res) => {
     const { broadcastId, message } = req.body;
