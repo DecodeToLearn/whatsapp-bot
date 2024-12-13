@@ -242,7 +242,52 @@ const downloadMedia = async (url) => {
         return null;
     }
 };
+//Group Operations
+app.post('/create-group', async (req, res) => {
+    const { groupName, contacts } = req.body;
 
+    if (!groupName || !contacts || !contacts.length) {
+        return res.status(400).json({ error: 'Grup adı ve kişiler gerekli.' });
+    }
+
+    try {
+        const result = await client.createGroup(groupName, contacts.map(number => `${number}@c.us`));
+        res.status(200).json({ success: true, groupId: result.gid._serialized });
+    } catch (error) {
+        console.error('Grup oluşturulurken hata:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/groups', async (req, res) => {
+    try {
+        const chats = await client.getChats();
+        const groups = chats.filter(chat => chat.isGroup).map(group => ({
+            id: group.id._serialized,
+            name: group.name
+        }));
+        res.status(200).json({ groups });
+    } catch (error) {
+        console.error('Gruplar alınırken hata:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/send-group-message', async (req, res) => {
+    const { groupId, message } = req.body;
+
+    if (!groupId || !message) {
+        return res.status(400).json({ error: 'Grup ID ve mesaj gerekli.' });
+    }
+
+    try {
+        await client.sendMessage(groupId, message);
+        res.status(200).json({ success: true });
+    } catch (error) {
+        console.error('Mesaj gönderilirken hata:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
 // QR Kod Endpoint
 app.get('/qr', (req, res) => {
     if (qrCodeUrl) {
