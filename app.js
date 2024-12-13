@@ -332,10 +332,12 @@ app.post('/create-broadcast', async (req, res) => {
 
 app.get('/broadcasts', async (req, res) => {
     try {
-        const broadcasts = await client.getBroadcasts(); // Broadcast listelerini al
-        const formattedBroadcasts = broadcasts.map((broadcast) => ({
+        const chats = await client.getChats(); // Tüm sohbetleri al
+        const broadcasts = chats.filter(chat => chat.isBroadcast); // Yayın listelerini filtrele
+
+        const formattedBroadcasts = broadcasts.map(broadcast => ({
             id: broadcast.id._serialized,
-            name: broadcast.name || 'Unknown Name',
+            name: broadcast.name || 'Broadcast',
         }));
 
         res.status(200).json({ broadcasts: formattedBroadcasts });
