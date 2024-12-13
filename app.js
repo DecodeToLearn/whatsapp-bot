@@ -258,7 +258,20 @@ app.post('/create-group', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-
+app.get('/chats', async (req, res) => {
+    try {
+        const chats = await client.getChats();
+        const formattedChats = chats.map(chat => ({
+            id: chat.id._serialized,
+            name: chat.name || chat.pushname || 'Unknown Chat',
+            isGroup: chat.isGroup
+        }));
+        res.status(200).json({ chats: formattedChats });
+    } catch (error) {
+        console.error('Sohbetler alınırken hata:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
 app.get('/groups', async (req, res) => {
     try {
         const chats = await client.getChats();
