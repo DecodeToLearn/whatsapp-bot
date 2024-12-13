@@ -398,7 +398,21 @@ app.post('/send-message-by-chat-name', async (req, res) => {
         res.status(500).json({ error: `Sunucu hatası: ${error.message}` });
     }
 });
+app.post('/send-test-message', async (req, res) => {
+    const { chatId, message } = req.body;
 
+    if (!chatId || !message) {
+        return res.status(400).json({ error: 'Chat ID ve mesaj gereklidir.' });
+    }
+
+    try {
+        await client.sendMessage(chatId, message);
+        res.status(200).json({ success: true });
+    } catch (error) {
+        console.error('Test mesaj gönderilirken hata:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
 //***********Broadcast End */
 app.post('/send-group-message', async (req, res) => {
     const { groupId, message } = req.body;
