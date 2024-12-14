@@ -258,33 +258,28 @@ app.post('/create-group', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-app.get('/chats', async (req, res) => {
-    try {
-        const chats = await client.getChats();
-        const formattedChats = chats.map(chat => ({
-            id: chat.id._serialized,
-            name: chat.name || chat.pushname || 'Unknown Chat',
-            isGroup: chat.isGroup
-        }));
-        res.status(200).json({ chats: formattedChats });
-    } catch (error) {
-        console.error('Sohbetler alınırken hata:', error.message);
-        res.status(500).json({ error: error.message });
-    }
-});
+
 app.get('/groups', async (req, res) => {
     try {
-        const chats = await client.getChats();
-        const groups = chats.filter(chat => chat.isGroup).map(group => ({
-            id: group.id._serialized,
-            name: group.name
-        }));
+        const contacts = await client.getContacts(); // Tüm kişiler
+        const groups = contacts
+            .filter(contact => contact.id._serialized.includes('@g.us')) // ID'de '@g.us' olanları filtrele
+            .map(contact => ({
+                id: contact.id._serialized, // Grup ID'si
+                name: contact.name || 'Unknown Group' // Grup adı veya varsayılan ad
+            }));
+
+        if (groups.length === 0) {
+            return res.status(200).json({ message: 'Grup bulunamadı.' });
+        }
+
         res.status(200).json({ groups });
     } catch (error) {
         console.error('Gruplar alınırken hata:', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: `Sunucu hatası: ${error.message}` });
     }
 });
+
 //********** Broadcast Start */
 // Broadcast Oluşturma
 /*app.post('/create-broadcast', async (req, res) => {
@@ -316,7 +311,7 @@ app.get('/groups', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-*/
+
 // Broadcast Listesi Getirme
 /*app.get('/broadcasts', async (req, res) => {
     try {
@@ -341,7 +336,7 @@ app.get('/groups', async (req, res) => {
         console.error('Broadcast listeleri alınırken hata:', error.message);
         res.status(500).json({ error: 'Sunucu hatası: ' + error.message });
     }
-});*/
+});
 
 app.get('/broadcasts', async (req, res) => {
     try {
@@ -426,6 +421,7 @@ app.post('/send-test-message', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+*/
 //***********Broadcast End */
 
 app.post('/send-group-media', async (req, res) => {
