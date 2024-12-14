@@ -432,23 +432,22 @@ app.post('/send-group-media', async (req, res) => {
     }
 
     try {
-        // Medya dosyasını indir
-        const mediaResponse = await axios.get(mediaUrl, { responseType: 'arraybuffer' });
-        const mediaBuffer = Buffer.from(mediaResponse.data, 'binary');
-        const mimeType = mediaResponse.headers['content-type'];
+        // Gruba mesaj göndermek için ID'nin formatını kontrol et
+        const formattedGroupId = groupId.includes('@g.us') ? groupId : `${groupId}@g.us`;
 
-        // Medya mesajını oluştur
-        const media = new MessageMedia(mimeType, mediaBuffer.toString('base64'));
+        // Medya dosyasını oluştur
+        const media = await MessageMedia.fromUrl(mediaUrl);
 
         // Mesajı gruba gönder
-        await client.sendMessage(groupId, media, { caption });
+        await client.sendMessage(formattedGroupId, media, { caption });
 
         res.status(200).json({ success: true, message: 'Medya mesajı başarıyla gönderildi.' });
     } catch (error) {
         console.error('Medya mesajı gönderilirken hata:', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: `Sunucu hatası: ${error.message}` });
     }
 });
+
 
 app.post('/send-group-message', async (req, res) => {
     const { groupId, message } = req.body;
