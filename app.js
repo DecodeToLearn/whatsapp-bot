@@ -23,7 +23,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(bodyParser.json());
-
+//test
 // WhatsApp Client
 const SESSION_DIR = './sessions';  // Session klasörü
 if (!fs.existsSync(SESSION_DIR)) {
