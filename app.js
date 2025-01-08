@@ -24,6 +24,10 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(bodyParser.json());
 
+// Global Değişkenler
+let qrCodeUrl = '';  // QR kod URL'sini saklamak için global değişken
+let contacts = [];   // Kişi listesini saklamak için global değişken
+
 const SESSION_DIR = './sessions';
 if (!fs.existsSync(SESSION_DIR)) {
     fs.mkdirSync(SESSION_DIR);
