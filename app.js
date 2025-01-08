@@ -1,5 +1,4 @@
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
-
 const qrcode = require('qrcode');
 const cors = require('cors');
 const express = require('express');
@@ -26,8 +25,8 @@ app.use(cors(corsOptions));
 app.use(bodyParser.json());
 
 // Global Değişkenler
-let qrCodeUrl = '';  // QR kod URL'sini saklamak için global değişken
-let contacts = [];   // Kişi listesini saklamak için global değişken
+let qrCodes = {};  // Kullanıcı bazlı QR kodlarını saklamak için
+let contacts = []; // Kişi listesini saklamak için
 
 const SESSION_DIR = './sessions';
 if (!fs.existsSync(SESSION_DIR)) {
@@ -61,7 +60,8 @@ function createClient(userId) {
 
     client.on('qr', async (qr) => {
         try {
-            qrCodeUrl = await qrcode.toDataURL(qr);
+            const qrCodeUrl = await qrcode.toDataURL(qr);
+            qrCodes[userId] = qrCodeUrl;
             console.log(`QR kodu (${userId}) oluşturuldu.`);
             broadcast({ type: 'qr', qrCode: qrCodeUrl, userId });
         } catch (error) {
@@ -71,8 +71,9 @@ function createClient(userId) {
 
     client.on('ready', async () => {
         console.log(`${userId} WhatsApp botu hazır.`);
+        delete qrCodes[userId]; // QR kodunu temizle
         try {
-            contacts = (await client.getContacts()).map((contact) => ({
+            contacts = (await client.getContacts()).map(contact => ({
                 id: contact.id._serialized,
                 name: contact.name || contact.pushname || contact.id.user,
             }));
@@ -82,7 +83,6 @@ function createClient(userId) {
         }
     });
 
-    // Mesaj Alındığında İşleme
     client.on('message', async (message) => {
         console.log(`Mesaj Alındı: ${message.body}`);
         try {
@@ -133,7 +133,7 @@ function createClient(userId) {
         setTimeout(() => createClient(userId), 5000);
     });
 
-    client.initialize(); 
+    client.initialize();
     clients[userId] = client;
 }
 
@@ -154,15 +154,16 @@ app.post('/register', (req, res) => {
 });
 
 // QR Kod Endpoint
-app.get('/qr', (req, res) => {
-    if (qrCodeUrl) {
+app.get('/qr/:userId', (req, res) => {
+    const userId = req.params.userId;
+    if (qrCodes[userId]) {
         res.send(`
             <html>
             <head><title>WhatsApp QR Kodu</title></head>
             <body style="display: flex; justify-content: center; align-items: center; height: 100vh;">
                 <div style="text-align: center;">
-                    <h1>WhatsApp QR Kodu</h1>
-                    <img src="${qrCodeUrl}" alt="WhatsApp QR" style="max-width: 100%; height: auto;" />
+                    <h1>WhatsApp QR Kodu (${userId})</h1>
+                    <img src="${qrCodes[userId]}" alt="WhatsApp QR" style="max-width: 100%; height: auto;" />
                 </div>
             </body>
             </html>
@@ -185,14 +186,9 @@ app.get('/qr', (req, res) => {
 // WebSocket Bağlantılarını Yönetme
 wss.on('connection', (ws) => {
     console.log('Yeni bir WebSocket bağlantısı kuruldu.');
-
-    if (qrCodeUrl) {
-        ws.send(JSON.stringify({ type: 'qr', qrCode: qrCodeUrl }));
-    }
-
-    if (contacts.length) {
-        ws.send(JSON.stringify({ type: 'contacts', contacts }));
-    }
+    Object.keys(qrCodes).forEach((userId) => {
+        ws.send(JSON.stringify({ type: 'qr', qrCode: qrCodes[userId], userId }));
+    });
 });
 
 // Mesaj Gönderme API'si
@@ -213,11 +209,11 @@ app.post('/send', async (req, res) => {
             }
 
             const messageMedia = MessageMedia.fromFilePath(mediaPath);
-            await clients[userId].sendMessage(formattedNumber, messageMedia, { caption });
+            await client.sendMessage(formattedNumber, messageMedia, { caption });
 
             fs.unlinkSync(mediaPath);
         } else if (caption) {
-            await clients[userId].sendMessage(formattedNumber, caption);
+            await client.sendMessage(formattedNumber, caption);
         }
 
         res.status(200).json({ success: true });
@@ -227,6 +223,7 @@ app.post('/send', async (req, res) => {
     }
 });
 
+// WebSocket Yayın Fonksiyonu
 function broadcast(data) {
     wss.clients.forEach((ws) => {
         if (ws.readyState === WebSocket.OPEN) {
@@ -235,6 +232,7 @@ function broadcast(data) {
     });
 }
 
+// Sunucuyu Başlat
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Sunucu çalışıyor: http://localhost:${PORT}`);
