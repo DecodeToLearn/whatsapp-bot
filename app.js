@@ -1,4 +1,5 @@
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
+const puppeteer = require('puppeteer');
 const qrcode = require('qrcode');
 const cors = require('cors');
 const express = require('express');
@@ -43,7 +44,7 @@ function createClient(userId) {
         }),
         puppeteer: {
             headless: true,
-            executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser',
+            executablePath: puppeteer.executablePath(),
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
