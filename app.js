@@ -71,7 +71,7 @@ function createClient(userId) {
     client.on('ready', async () => {
         console.log(`${userId} WhatsApp botu hazır.`);
         try {
-            const contacts = (await client.getContacts()).map((contact) => ({
+            contacts = (await client.getContacts()).map((contact) => ({
                 id: contact.id._serialized,
                 name: contact.name || contact.pushname || contact.id.user,
             }));
