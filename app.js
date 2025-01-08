@@ -154,7 +154,7 @@ app.post('/register', (req, res) => {
 });
 
 // QR Kod Endpoint
-app.get('/qr/:userId', (req, res) => {
+/*app.get('/qr/:userId', (req, res) => {
     const userId = req.params.userId;
     if (qrCodes[userId]) {
         res.send(`
@@ -180,6 +180,21 @@ app.get('/qr/:userId', (req, res) => {
             </body>
             </html>
         `);
+    }
+});*/
+
+app.get('/qr/:userId', (req, res) => {
+    const userId = req.params.userId;
+
+    if (qrCodes[userId]) {
+        // Base64 veriyi doğrudan döndür
+        const base64Data = qrCodes[userId].replace(/^data:image\/png;base64,/, '');
+        const imgBuffer = Buffer.from(base64Data, 'base64');
+
+        res.set('Content-Type', 'image/png');
+        res.send(imgBuffer); // Resim olarak döndür
+    } else {
+        res.status(404).send('QR kodu bulunamadı.');
     }
 });
 
