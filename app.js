@@ -1,5 +1,5 @@
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
-const puppeteer = require('puppeteer');
+
 const qrcode = require('qrcode');
 const cors = require('cors');
 const express = require('express');
@@ -44,7 +44,6 @@ function createClient(userId) {
         }),
         puppeteer: {
             headless: true,
-            executablePath: puppeteer.executablePath(),
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -240,3 +239,4 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Sunucu çalışıyor: http://localhost:${PORT}`);
 });
+client.initialize();
