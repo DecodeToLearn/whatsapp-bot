@@ -23,20 +23,19 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(bodyParser.json());
-//test
-// WhatsApp Client
-const SESSION_DIR = './sessions';  // Session klasörü
+
+const SESSION_DIR = './sessions';
 if (!fs.existsSync(SESSION_DIR)) {
     fs.mkdirSync(SESSION_DIR);
 }
 
-const clients = {};  // Kullanıcı bazlı client'lar
+const clients = {};
 
 function createClient(userId) {
     const client = new Client({
         authStrategy: new LocalAuth({
             clientId: userId,
-            dataPath: SESSION_DIR,
+            dataPath: path.join(SESSION_DIR, userId),
         }),
         puppeteer: {
             headless: true,
@@ -55,7 +54,6 @@ function createClient(userId) {
         },
     });
 
-    // QR Kod Oluşturma
     client.on('qr', async (qr) => {
         try {
             const qrCodeUrl = await qrcode.toDataURL(qr);
@@ -66,11 +64,10 @@ function createClient(userId) {
         }
     });
 
-    // Bağlantı Sağlandığında
     client.on('ready', async () => {
         console.log(`${userId} WhatsApp botu hazır.`);
         try {
-            const contacts = (await client.getContacts()).map(contact => ({
+            const contacts = (await client.getContacts()).map((contact) => ({
                 id: contact.id._serialized,
                 name: contact.name || contact.pushname || contact.id.user,
             }));
@@ -80,10 +77,55 @@ function createClient(userId) {
         }
     });
 
-    // Bağlantı Kesildiğinde Yeniden Bağlanma
+    // Mesaj Alındığında İşleme
+    client.on('message', async (message) => {
+        console.log(`Mesaj Alındı: ${message.body}`);
+        try {
+            if (message.hasMedia) {
+                const media = await message.downloadMedia();
+                if (media) {
+                    const filePath = saveMediaToFile(media);
+                    broadcast({
+                        type: 'mediaMessage',
+                        from: message.from,
+                        caption: message.caption || '',
+                        media: {
+                            mimetype: media.mimetype,
+                            url: filePath,
+                        },
+                    });
+                }
+            } else if (message.location) {
+                broadcast({
+                    type: 'locationMessage',
+                    from: message.from,
+                    location: {
+                        latitude: message.location.latitude,
+                        longitude: message.location.longitude,
+                        description: message.location.description || '',
+                    },
+                });
+            } else if (message.type === 'contact_card') {
+                broadcast({
+                    type: 'contactMessage',
+                    from: message.from,
+                    contact: message.vCard,
+                });
+            } else {
+                broadcast({
+                    type: 'textMessage',
+                    from: message.from,
+                    body: message.body,
+                });
+            }
+        } catch (error) {
+            console.error('Mesaj işlenirken hata:', error);
+        }
+    });
+
     client.on('disconnected', (reason) => {
         console.log(`${userId} bağlantısı kesildi: ${reason}`);
-        setTimeout(() => createClient(userId), 5000);  // 5 saniye sonra yeniden başlat
+        setTimeout(() => createClient(userId), 5000);
     });
 
     client.initialize();
@@ -135,52 +177,6 @@ app.get('/qr', (req, res) => {
     }
 });
 
-// Mesaj Alındığında İşleme
-client.on('message', async (message) => {
-    console.log(`Mesaj Alındı: ${message.body}`);
-    try {
-        if (message.hasMedia) {
-            const media = await message.downloadMedia();
-            if (media) {
-                const filePath = saveMediaToFile(media);
-                broadcast({
-                    type: 'mediaMessage',
-                    from: message.from,
-                    caption: message.caption || '',
-                    media: {
-                        mimetype: media.mimetype,
-                        url: filePath,
-                    },
-                });
-            }
-        } else if (message.location) {
-            broadcast({
-                type: 'locationMessage',
-                from: message.from,
-                location: {
-                    latitude: message.location.latitude,
-                    longitude: message.location.longitude,
-                    description: message.location.description || '',
-                },
-            });
-        } else if (message.type === 'contact_card') {
-            broadcast({
-                type: 'contactMessage',
-                from: message.from,
-                contact: message.vCard,
-            });
-        } else {
-            broadcast({
-                type: 'textMessage',
-                from: message.from,
-                body: message.body,
-            });
-        }
-    } catch (error) {
-        console.error('Mesaj işlenirken hata:', error);
-    }
-});
-
 // WebSocket Bağlantılarını Yönetme
 wss.on('connection', (ws) => {
     console.log('Yeni bir WebSocket bağlantısı kuruldu.');
@@ -214,7 +210,7 @@ app.post('/send', async (req, res) => {
             const messageMedia = MessageMedia.fromFilePath(mediaPath);
             await client.sendMessage(formattedNumber, messageMedia, { caption });
 
-            fs.unlinkSync(mediaPath);  // Geçici dosyayı sil
+            fs.unlinkSync(mediaPath);
         } else if (caption) {
             await client.sendMessage(formattedNumber, caption);
         }
@@ -226,7 +222,6 @@ app.post('/send', async (req, res) => {
     }
 });
 
-// WebSocket Yayın Fonksiyonu
 function broadcast(data) {
     wss.clients.forEach((ws) => {
         if (ws.readyState === WebSocket.OPEN) {
@@ -235,10 +230,7 @@ function broadcast(data) {
     });
 }
 
-// Sunucuyu Başlat
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Sunucu çalışıyor: http://localhost:${PORT}`);
 });
-
-client.initialize();
