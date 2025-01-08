@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: whatsapp-bot
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: CHROMIUM_PATH
+        value: /usr/bin/chromium-browser

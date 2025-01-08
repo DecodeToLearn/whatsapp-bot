@@ -43,6 +43,7 @@ function createClient(userId) {
         }),
         puppeteer: {
             headless: true,
+            executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser',
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
