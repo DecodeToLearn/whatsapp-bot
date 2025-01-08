@@ -60,7 +60,7 @@ function createClient(userId) {
 
     client.on('qr', async (qr) => {
         try {
-            const qrCodeUrl = await qrcode.toDataURL(qr);
+            qrCodeUrl = await qrcode.toDataURL(qr);
             console.log(`QR kodu (${userId}) oluşturuldu.`);
             broadcast({ type: 'qr', qrCode: qrCodeUrl, userId });
         } catch (error) {
