@@ -133,7 +133,7 @@ function createClient(userId) {
         setTimeout(() => createClient(userId), 5000);
     });
 
-    client.initialize();
+    client.initialize(); 
     clients[userId] = client;
 }
 
@@ -213,11 +213,11 @@ app.post('/send', async (req, res) => {
             }
 
             const messageMedia = MessageMedia.fromFilePath(mediaPath);
-            await client.sendMessage(formattedNumber, messageMedia, { caption });
+            await clients[userId].sendMessage(formattedNumber, messageMedia, { caption });
 
             fs.unlinkSync(mediaPath);
         } else if (caption) {
-            await client.sendMessage(formattedNumber, caption);
+            await clients[userId].sendMessage(formattedNumber, caption);
         }
 
         res.status(200).json({ success: true });
@@ -239,4 +239,3 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Sunucu çalışıyor: http://localhost:${PORT}`);
 });
-client.initialize();
