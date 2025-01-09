@@ -26,7 +26,6 @@ const corsOptions = {
 
 // Medya dosyalarını statik olarak sun
 app.use('/media', express.static(path.join(__dirname, 'media')));
-
 app.use(cors(corsOptions));
 app.use(bodyParser.json());
 
@@ -163,40 +162,56 @@ function createClient(userId) {
     });*/
     // Medyaları dosya sistemine kaydetme
     function saveMediaToFile(media) {
-        const filePath = path.join(__dirname, 'media', `${Date.now()}-${media.filename}`);
+        const mediaDir = path.join(__dirname, 'media');
+        if (!fs.existsSync(mediaDir)) {
+            fs.mkdirSync(mediaDir);
+        }
+    
+        const filePath = path.join(mediaDir, `${Date.now()}-${media.filename}`);
         fs.writeFileSync(filePath, media.data, { encoding: 'base64' });
+    
         return `https://whatsapp-bot-ie3t.onrender.com/media/${path.basename(filePath)}`;
     }
 
     // Mesajları belirli bir Chat ID için getir
-app.get('/messages/:chatId', async (req, res) => {
-    const { chatId } = req.params;
-
-    if (!clients[chatId]) {
-        return res.status(404).json({ error: 'Bu chat ID için aktif bir oturum yok.' });
-    }
-
-    try {
-        const chat = await clients[chatId].getChatById(chatId);
-        const messages = await chat.fetchMessages();
-
-        // Mesajları frontend'e uygun formatta döndür
-        const formattedMessages = messages.map(msg => ({
-            from: msg.from,
-            body: msg.body || '',
-            media: msg.hasMedia ? {
-                mimetype: msg._data.mimetype,
-                url: await msg.downloadMedia().then(media => saveMediaToFile(media)),
-            } : null,
-            timestamp: msg.timestamp,
-        }));
-
-        res.status(200).json({ messages: formattedMessages });
-    } catch (error) {
-        console.error('Mesajlar alınırken hata:', error);
-        res.status(500).json({ error: 'Mesajlar alınırken hata oluştu.' });
-    }
-});
+    app.get('/messages/:chatId', async (req, res) => {
+        const { chatId } = req.params;
+    
+        if (!clients[chatId]) {
+            return res.status(404).json({ error: 'Bu chat ID için aktif bir oturum yok.' });
+        }
+    
+        try {
+            const chat = await clients[chatId].getChatById(chatId);
+            const messages = await chat.fetchMessages();
+    
+            const formattedMessages = [];
+            for (const msg of messages) {
+                const formattedMsg = {
+                    from: msg.from,
+                    body: msg.body || '',
+                    media: null,
+                    timestamp: msg.timestamp,
+                };
+    
+                if (msg.hasMedia) {
+                    const media = await msg.downloadMedia();
+                    formattedMsg.media = {
+                        mimetype: media.mimetype,
+                        url: saveMediaToFile(media),
+                    };
+                }
+    
+                formattedMessages.push(formattedMsg);
+            }
+    
+            res.status(200).json({ messages: formattedMessages });
+        } catch (error) {
+            console.error('Mesajlar alınırken hata:', error);
+            res.status(500).json({ error: 'Mesajlar alınırken hata oluştu.' });
+        }
+    });
+    
 
     
     client.on('disconnected', (reason) => {
