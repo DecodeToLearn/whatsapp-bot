@@ -24,6 +24,9 @@ const corsOptions = {
     optionsSuccessStatus: 204,
 };
 
+// Medya dosyalarını statik olarak sun
+app.use('/media', express.static(path.join(__dirname, 'media')));
+
 app.use(cors(corsOptions));
 app.use(bodyParser.json());
 
@@ -95,7 +98,7 @@ function createClient(userId) {
  
 
 
-    client.on('message', async (message) => {
+   /* client.on('message', async (message) => {
         console.log(`Mesaj Alındı: ${message.body}`);
         try {
             const chatId = message.from;
@@ -157,8 +160,44 @@ function createClient(userId) {
         } catch (error) {
             console.error('Mesaj işlenirken hata:', error);
         }
-    });
-    
+    });*/
+    // Medyaları dosya sistemine kaydetme
+    function saveMediaToFile(media) {
+        const filePath = path.join(__dirname, 'media', `${Date.now()}-${media.filename}`);
+        fs.writeFileSync(filePath, media.data, { encoding: 'base64' });
+        return `https://whatsapp-bot-ie3t.onrender.com/media/${path.basename(filePath)}`;
+    }
+
+    // Mesajları belirli bir Chat ID için getir
+app.get('/messages/:chatId', async (req, res) => {
+    const { chatId } = req.params;
+
+    if (!clients[chatId]) {
+        return res.status(404).json({ error: 'Bu chat ID için aktif bir oturum yok.' });
+    }
+
+    try {
+        const chat = await clients[chatId].getChatById(chatId);
+        const messages = await chat.fetchMessages();
+
+        // Mesajları frontend'e uygun formatta döndür
+        const formattedMessages = messages.map(msg => ({
+            from: msg.from,
+            body: msg.body || '',
+            media: msg.hasMedia ? {
+                mimetype: msg._data.mimetype,
+                url: await msg.downloadMedia().then(media => saveMediaToFile(media)),
+            } : null,
+            timestamp: msg.timestamp,
+        }));
+
+        res.status(200).json({ messages: formattedMessages });
+    } catch (error) {
+        console.error('Mesajlar alınırken hata:', error);
+        res.status(500).json({ error: 'Mesajlar alınırken hata oluştu.' });
+    }
+});
+
     
     client.on('disconnected', (reason) => {
         console.log(`${userId} bağlantısı kesildi: ${reason}`);
