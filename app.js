@@ -65,7 +65,7 @@ function createClient(userId) {
                 '--disable-gpu',
             ],
             defaultViewport: null,
-            timeout: 60000,
+            timeout: 30000,
         },
     });
 
@@ -174,44 +174,55 @@ function createClient(userId) {
     }
 
     // Mesajları belirli bir Chat ID için getir
-    app.get('/messages/:chatId', async (req, res) => {
-        const { chatId } = req.params;
-    
-        if (!clients[chatId]) {
-            return res.status(404).json({ error: 'Bu chat ID için aktif bir oturum yok.' });
+
+app.get('/messages/:chatId', async (req, res) => {
+    try {
+        // Sunucuda aktif bir WhatsApp oturumunu kontrol et
+        const activeClient = Object.values(clients)[0];
+        if (!activeClient) {
+            return res.status(404).json({ error: 'Aktif bir WhatsApp oturumu yok.' });
         }
-    
-        try {
-            const chat = await clients[chatId].getChatById(chatId);
-            const messages = await chat.fetchMessages();
-    
-            const formattedMessages = [];
-            for (const msg of messages) {
-                const formattedMsg = {
-                    from: msg.from,
-                    body: msg.body || '',
-                    media: null,
-                    timestamp: msg.timestamp,
-                };
-    
-                if (msg.hasMedia) {
+
+        // Chat oturumunu al
+        const chat = await activeClient.getChatById(req.params.chatId);
+        const messages = await chat.fetchMessages();
+
+        // Mesajları formatla
+        const formattedMessages = [];
+        for (const msg of messages) {
+            const formattedMsg = {
+                from: msg.from,
+                body: msg.body || '',
+                media: null,
+                timestamp: msg.timestamp,
+            };
+
+            // Medya mesajlarını indir
+            if (msg.hasMedia) {
+                try {
                     const media = await msg.downloadMedia();
-                    formattedMsg.media = {
-                        mimetype: media.mimetype,
-                        url: saveMediaToFile(media),
-                    };
+                    if (media) {
+                        const filePath = saveMediaToFile(media);
+                        formattedMsg.media = {
+                            mimetype: media.mimetype,
+                            url: filePath,
+                        };
+                    }
+                } catch (mediaError) {
+                    console.error('Medya indirilirken hata oluştu:', mediaError);
                 }
-    
-                formattedMessages.push(formattedMsg);
             }
-    
-            res.status(200).json({ messages: formattedMessages });
-        } catch (error) {
-            console.error('Mesajlar alınırken hata:', error);
-            res.status(500).json({ error: 'Mesajlar alınırken hata oluştu.' });
+
+            formattedMessages.push(formattedMsg);
         }
-    });
-    
+
+        // Mesajları JSON olarak gönder
+        res.status(200).json({ messages: formattedMessages });
+    } catch (error) {
+        console.error('Mesajlar alınırken hata:', error);
+        res.status(500).json({ error: 'Mesajlar alınırken hata oluştu.' });
+    }
+});
 
     
     client.on('disconnected', (reason) => {
