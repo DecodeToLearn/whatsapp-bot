@@ -1,3 +1,6 @@
+// ✨ WhatsApp Web.js Client App (Optimized)
+// 🎯 Designed with KG08 Rules
+
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
 const cors = require('cors');
@@ -24,7 +27,6 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(bodyParser.json());
 
-// Global Değişkenler
 let qrCodes = {};  // Kullanıcı bazlı QR kodlarını saklamak için
 const clients = {};  // Kullanıcı clientlarını saklamak için
 const SESSION_DIR = './sessions';
