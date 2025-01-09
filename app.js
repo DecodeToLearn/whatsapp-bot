@@ -34,7 +34,16 @@ const SESSION_DIR = './sessions';
 if (!fs.existsSync(SESSION_DIR)) {
     fs.mkdirSync(SESSION_DIR);
 }
+// Kullanıcı bağlılık kontrolü
+app.get('/check-user/:userId', async (req, res) => {
+    const { userId } = req.params;
 
+    if (clients[userId]) {
+        res.json({ connected: true });
+    } else {
+        res.json({ connected: false });
+    }
+});
 function createClient(userId) {
     const client = new Client({
         authStrategy: new LocalAuth({
