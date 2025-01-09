@@ -26,14 +26,12 @@ app.use(bodyParser.json());
 
 // Global Değişkenler
 let qrCodes = {};  // Kullanıcı bazlı QR kodlarını saklamak için
-let contacts = []; // Kişi listesini saklamak için
-
+const clients = {};  // Kullanıcı clientlarını saklamak için
 const SESSION_DIR = './sessions';
+
 if (!fs.existsSync(SESSION_DIR)) {
     fs.mkdirSync(SESSION_DIR);
 }
-
-const clients = {};
 
 function createClient(userId) {
     const client = new Client({
@@ -73,7 +71,7 @@ function createClient(userId) {
         console.log(`${userId} WhatsApp botu hazır.`);
         delete qrCodes[userId]; // QR kodunu temizle
         try {
-            contacts = (await client.getContacts()).map(contact => ({
+            const contacts = (await client.getContacts()).map(contact => ({
                 id: contact.id._serialized,
                 name: contact.name || contact.pushname || contact.id.user,
             }));
@@ -137,7 +135,6 @@ function createClient(userId) {
     clients[userId] = client;
 }
 
-// Kullanıcı Kaydı ve Client Oluşturma
 app.post('/register', (req, res) => {
     const { userId } = req.body;
 
@@ -153,52 +150,20 @@ app.post('/register', (req, res) => {
     res.json({ status: 'registered' });
 });
 
-// QR Kod Endpoint
-/*app.get('/qr/:userId', (req, res) => {
-    const userId = req.params.userId;
-    if (qrCodes[userId]) {
-        res.send(`
-            <html>
-            <head><title>WhatsApp QR Kodu</title></head>
-            <body style="display: flex; justify-content: center; align-items: center; height: 100vh;">
-                <div style="text-align: center;">
-                    <h1>WhatsApp QR Kodu (${userId})</h1>
-                    <img src="${qrCodes[userId]}" alt="WhatsApp QR" style="max-width: 100%; height: auto;" />
-                </div>
-            </body>
-            </html>
-        `);
-    } else {
-        res.send(`
-            <html>
-            <head><title>QR Kodu Oluşturuluyor...</title></head>
-            <body style="display: flex; justify-content: center; align-items: center; height: 100vh;">
-                <div style="text-align: center;">
-                    <h1>QR Kodu Oluşturuluyor</h1>
-                    <p>Lütfen bekleyin...</p>
-                </div>
-            </body>
-            </html>
-        `);
-    }
-});*/
-
 app.get('/qr/:userId', (req, res) => {
     const userId = req.params.userId;
 
     if (qrCodes[userId]) {
-        // Base64 veriyi doğrudan döndür
         const base64Data = qrCodes[userId].replace(/^data:image\/png;base64,/, '');
         const imgBuffer = Buffer.from(base64Data, 'base64');
 
         res.set('Content-Type', 'image/png');
-        res.send(imgBuffer); // Resim olarak döndür
+        res.send(imgBuffer);
     } else {
         res.status(404).send('QR kodu bulunamadı.');
     }
 });
 
-// WebSocket Bağlantılarını Yönetme
 wss.on('connection', (ws) => {
     console.log('Yeni bir WebSocket bağlantısı kuruldu.');
     Object.keys(qrCodes).forEach((userId) => {
@@ -206,7 +171,6 @@ wss.on('connection', (ws) => {
     });
 });
 
-// Mesaj Gönderme API'si
 app.post('/send', async (req, res) => {
     const { number, caption, media } = req.body;
 
@@ -224,11 +188,11 @@ app.post('/send', async (req, res) => {
             }
 
             const messageMedia = MessageMedia.fromFilePath(mediaPath);
-            await client.sendMessage(formattedNumber, messageMedia, { caption });
+            await clients[number].sendMessage(formattedNumber, messageMedia, { caption });
 
             fs.unlinkSync(mediaPath);
         } else if (caption) {
-            await client.sendMessage(formattedNumber, caption);
+            await clients[number].sendMessage(formattedNumber, caption);
         }
 
         res.status(200).json({ success: true });
@@ -238,7 +202,6 @@ app.post('/send', async (req, res) => {
     }
 });
 
-// WebSocket Yayın Fonksiyonu
 function broadcast(data) {
     wss.clients.forEach((ws) => {
         if (ws.readyState === WebSocket.OPEN) {
@@ -247,7 +210,6 @@ function broadcast(data) {
     });
 }
 
-// Sunucuyu Başlat
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Sunucu çalışıyor: http://localhost:${PORT}`);
