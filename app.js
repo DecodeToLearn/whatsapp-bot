@@ -92,6 +92,43 @@ function createClient(userId) {
         }
     });
 
+    function updateContactList(contacts) {
+        // 🔄 Kontakları okunmamış mesajlara ve son mesaj zamanına göre sırala
+        contacts.sort((a, b) => {
+            const unreadDiff = b.unreadCount - a.unreadCount;
+            if (unreadDiff !== 0) return unreadDiff;
+            return new Date(b.lastMessageTime) - new Date(a.lastMessageTime);
+        });
+    
+        contactListDiv.innerHTML = ''; // Eski kontakları temizle
+    
+        contacts.forEach(contact => {
+            // 📋 Her bir kontak için div oluştur
+            const contactItem = document.createElement('div');
+            contactItem.classList.add('contact-item', 'p-2', 'border', 'mb-2', 'bg-light');
+            contactItem.dataset.id = contact.id;
+    
+            // 🔔 Kontak ismi ve okunmamış mesaj sayısını göster
+            const unreadBadge = contact.unreadCount > 0 ? `<span class="badge bg-danger ms-2">${contact.unreadCount}</span>` : '';
+            contactItem.innerHTML = `<strong>${contact.name}</strong> ${unreadBadge}`;
+    
+            // 🖱️ Kontak tıklama olayı
+            contactItem.onclick = () => {
+                currentChatId = contact.id;
+                chatHeader.innerText = contact.name;
+                messageListDiv.innerHTML = '';
+                messagePlaceholder.style.display = 'none';
+    
+                // 📩 Mesajları kontak ID'sine göre çek
+                fetchMessages(currentChatId);
+            };
+    
+            contactListDiv.appendChild(contactItem);
+        });
+    }
+    
+
+
     client.on('message', async (message) => {
         console.log(`Mesaj Alındı: ${message.body}`);
         try {
@@ -99,17 +136,33 @@ function createClient(userId) {
                 const media = await message.downloadMedia();
                 if (media) {
                     const filePath = saveMediaToFile(media);
-                    broadcast({
-                        type: 'mediaMessage',
-                        from: message.from,
-                        caption: message.caption || '',
-                        media: {
-                            mimetype: media.mimetype,
-                            url: filePath,
-                        },
-                    });
+    
+                    // 🎥 Video mesajları için özel kontrol
+                    if (media.mimetype.startsWith('video/')) {
+                        broadcast({
+                            type: 'videoMessage',
+                            from: message.from,
+                            caption: message.caption || '',
+                            media: {
+                                mimetype: media.mimetype,
+                                url: filePath,
+                            },
+                        });
+                    } else {
+                        // 📷 Diğer medya mesajları için
+                        broadcast({
+                            type: 'mediaMessage',
+                            from: message.from,
+                            caption: message.caption || '',
+                            media: {
+                                mimetype: media.mimetype,
+                                url: filePath,
+                            },
+                        });
+                    }
                 }
             } else if (message.location) {
+                // 📍 Konum mesajları için
                 broadcast({
                     type: 'locationMessage',
                     from: message.from,
@@ -120,12 +173,14 @@ function createClient(userId) {
                     },
                 });
             } else if (message.type === 'contact_card') {
+                // 👤 Kişi kartı mesajları için
                 broadcast({
                     type: 'contactMessage',
                     from: message.from,
                     contact: message.vCard,
                 });
             } else {
+                // 📝 Metin mesajları için
                 broadcast({
                     type: 'textMessage',
                     from: message.from,
@@ -136,7 +191,7 @@ function createClient(userId) {
             console.error('Mesaj işlenirken hata:', error);
         }
     });
-
+    
     client.on('disconnected', (reason) => {
         console.log(`${userId} bağlantısı kesildi: ${reason}`);
         setTimeout(() => createClient(userId), 5000);
@@ -145,6 +200,76 @@ function createClient(userId) {
     client.initialize();
     clients[userId] = client;
 }
+
+function updateMessageList(messages) {
+    messageListDiv.innerHTML = ''; // Eski mesajları temizle
+
+    messages.forEach(msg => {
+        const msgElement = document.createElement('div');
+        msgElement.classList.add('message-item', 'p-2', 'mb-2', 'border', 'rounded');
+
+        if (msg.media) {
+            if (msg.media.mimetype === 'video/mp4') {
+                // 🎥 Video mesajları için
+                msgElement.innerHTML = `
+                    <p><strong>${msg.from}:</strong></p>
+                    <video controls style="max-width: 100%; height: auto;">
+                        <source src="${msg.media.url}" type="video/mp4">
+                        Tarayıcınız video formatını desteklemiyor.
+                    </video>
+                    <p>${msg.body}</p>
+                `;
+            } else if (msg.media.mimetype.startsWith('image/')) {
+                // 🖼 Görsel mesajlar için
+                msgElement.innerHTML = `
+                    <p><strong>${msg.from}:</strong></p>
+                    <p>${msg.body}</p>
+                    <a href="${msg.media.url}" target="_blank">
+                        <img src="${msg.media.url}" alt="Media" style="max-width: 100%; height: auto;">
+                    </a>
+                `;
+            } else {
+                console.warn('Desteklenmeyen medya formatı:', msg.media.mimetype);
+            }
+        } else {
+            // 📝 Metin mesajları için
+            msgElement.innerHTML = `
+                <p><strong>${msg.from}:</strong> ${msg.body}</p>
+            `;
+        }
+
+        messageListDiv.appendChild(msgElement);
+    });
+
+    messagePlaceholder.style.display = 'none';
+}
+
+
+
+function updateUnreadCount(contactId, unreadCount) {
+    const contactItem = document.querySelector(`[data-id="${contactId}"]`);
+    if (!contactItem) return;
+
+    // Badge güncelle
+    const badge = contactItem.querySelector('.badge');
+    if (unreadCount > 0) {
+        if (badge) {
+            badge.innerText = unreadCount; // Mevcut Badge'i güncelle
+        } else {
+            // Badge yoksa yeni ekle
+            const unreadBadge = document.createElement('span');
+            unreadBadge.classList.add('badge', 'bg-danger', 'ms-2');
+            unreadBadge.innerText = unreadCount;
+            contactItem.appendChild(unreadBadge);
+        }
+    } else {
+        // Okunmamış mesaj yoksa Badge'i kaldır
+        if (badge) {
+            badge.remove();
+        }
+    }
+}
+
 
 app.post('/register', (req, res) => {
     const { userId } = req.body;
