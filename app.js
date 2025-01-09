@@ -161,63 +161,55 @@ function createClient(userId) {
         }
     });*/
     // Medyaları dosya sistemine kaydetme
-    function saveMediaToFile(media) {
-        const mediaDir = path.join(__dirname, 'media');
-        if (!fs.existsSync(mediaDir)) {
-            fs.mkdirSync(mediaDir);
+    const saveMediaToFile = async (media) => {
+        const extension = media.mimetype.split('/')[1];
+        const fileName = `${Date.now()}.${extension}`;
+        const filePath = path.join(__dirname, 'media', fileName);
+    
+        try {
+            await fs.promises.writeFile(filePath, media.data, 'base64');
+            return `/media/${fileName}`;
+        } catch (error) {
+            console.error('Medya dosyası kaydedilirken hata:', error);
+            return null;
         }
+    };
     
-        const filePath = path.join(mediaDir, `${Date.now()}-${media.filename}`);
-        fs.writeFileSync(filePath, media.data, { encoding: 'base64' });
-    
-        return `https://whatsapp-bot-ie3t.onrender.com/media/${path.basename(filePath)}`;
-    }
 
     // Mesajları belirli bir Chat ID için getir
 
 // Mesajları belirli bir Chat ID için getir (Son 20 mesaj)
 app.get('/messages/:chatId', async (req, res) => {
     try {
-        // Sunucuda aktif bir WhatsApp oturumunu kontrol et
         const activeClient = Object.values(clients)[0];
         if (!activeClient) {
             return res.status(404).json({ error: 'Aktif bir WhatsApp oturumu yok.' });
         }
 
-        // Chat oturumunu al ve son 20 mesajı getir
         const chat = await activeClient.getChatById(req.params.chatId);
         const messages = await chat.fetchMessages({ limit: 20 });
 
-        // Mesajları formatla
-        const formattedMessages = [];
-        for (const msg of messages) {
-            const formattedMsg = {
-                from: msg.from,
-                body: msg.body || '',
-                media: null,
-                timestamp: msg.timestamp,
-            };
+        const formattedMessages = await Promise.all(
+            messages.map(async (msg) => {
+                const formattedMsg = {
+                    from: msg.from,
+                    body: msg.body || '',
+                    media: null,
+                    timestamp: msg.timestamp,
+                };
 
-            // Medya mesajlarını indir
-            if (msg.hasMedia) {
-                try {
+                if (msg.hasMedia) {
                     const media = await msg.downloadMedia();
-                    if (media) {
-                        const filePath = saveMediaToFile(media);
-                        formattedMsg.media = {
-                            mimetype: media.mimetype,
-                            url: filePath,
-                        };
-                    }
-                } catch (mediaError) {
-                    console.error('Medya indirilirken hata oluştu:', mediaError);
+                    formattedMsg.media = {
+                        mimetype: media.mimetype,
+                        url: await saveMediaToFile(media),
+                    };
                 }
-            }
 
-            formattedMessages.push(formattedMsg);
-        }
+                return formattedMsg;
+            })
+        );
 
-        // Mesajları JSON olarak gönder
         res.status(200).json({ messages: formattedMessages });
     } catch (error) {
         console.error('Mesajlar alınırken hata:', error);
