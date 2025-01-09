@@ -175,6 +175,7 @@ function createClient(userId) {
 
     // Mesajları belirli bir Chat ID için getir
 
+// Mesajları belirli bir Chat ID için getir (Son 20 mesaj)
 app.get('/messages/:chatId', async (req, res) => {
     try {
         // Sunucuda aktif bir WhatsApp oturumunu kontrol et
@@ -183,9 +184,9 @@ app.get('/messages/:chatId', async (req, res) => {
             return res.status(404).json({ error: 'Aktif bir WhatsApp oturumu yok.' });
         }
 
-        // Chat oturumunu al
+        // Chat oturumunu al ve son 20 mesajı getir
         const chat = await activeClient.getChatById(req.params.chatId);
-        const messages = await chat.fetchMessages();
+        const messages = await chat.fetchMessages({ limit: 20 });
 
         // Mesajları formatla
         const formattedMessages = [];
@@ -223,6 +224,7 @@ app.get('/messages/:chatId', async (req, res) => {
         res.status(500).json({ error: 'Mesajlar alınırken hata oluştu.' });
     }
 });
+
 
     
     client.on('disconnected', (reason) => {
