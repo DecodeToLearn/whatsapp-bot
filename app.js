@@ -98,65 +98,67 @@ function createClient(userId) {
     client.on('message', async (message) => {
         console.log(`Mesaj Alındı: ${message.body}`);
         try {
+            const chatId = message.from;
+    
             if (message.hasMedia) {
                 const media = await message.downloadMedia();
-                if (media) {
-                    const filePath = saveMediaToFile(media);
-    
-                    // 🎥 Video mesajları için özel kontrol
-                    if (media.mimetype.startsWith('video/')) {
-                        broadcast({
-                            type: 'videoMessage',
-                            from: message.from,
-                            caption: message.caption || '',
-                            media: {
-                                mimetype: media.mimetype,
-                                url: filePath,
-                            },
-                        });
-                    } else {
-                        // 📷 Diğer medya mesajları için
-                        broadcast({
-                            type: 'mediaMessage',
-                            from: message.from,
-                            caption: message.caption || '',
-                            media: {
-                                mimetype: media.mimetype,
-                                url: filePath,
-                            },
-                        });
-                    }
-                }
+                const msgData = {
+                    type: 'messages',
+                    chatId: chatId,
+                    messages: [{
+                        from: message.from,
+                        body: message.caption || '',
+                        media: {
+                            mimetype: media.mimetype,
+                            url: saveMediaToFile(media),
+                        },
+                        timestamp: message.timestamp,
+                    }]
+                };
+                broadcast(msgData);
             } else if (message.location) {
-                // 📍 Konum mesajları için
-                broadcast({
-                    type: 'locationMessage',
-                    from: message.from,
-                    location: {
-                        latitude: message.location.latitude,
-                        longitude: message.location.longitude,
-                        description: message.location.description || '',
-                    },
-                });
+                const msgData = {
+                    type: 'messages',
+                    chatId: chatId,
+                    messages: [{
+                        from: message.from,
+                        location: {
+                            latitude: message.location.latitude,
+                            longitude: message.location.longitude,
+                            description: message.location.description || '',
+                        },
+                        timestamp: message.timestamp,
+                    }]
+                };
+                broadcast(msgData);
             } else if (message.type === 'contact_card') {
-                // 👤 Kişi kartı mesajları için
-                broadcast({
-                    type: 'contactMessage',
-                    from: message.from,
-                    contact: message.vCard,
-                });
+                const msgData = {
+                    type: 'messages',
+                    chatId: chatId,
+                    messages: [{
+                        from: message.from,
+                        contact: message.vCard,
+                        timestamp: message.timestamp,
+                    }]
+                };
+                broadcast(msgData);
             } else {
-                // 📝 Metin mesajları için
-                broadcast({
-                    type: 'textMessage',
-                    from: message.from,
-                    body: message.body,
-                });
+                const msgData = {
+                    type: 'messages',
+                    chatId: chatId,
+                    messages: [{
+                        from: message.from,
+                        body: message.body,
+                        timestamp: message.timestamp,
+                    }]
+                };
+                broadcast(msgData);
             }
         } catch (error) {
             console.error('Mesaj işlenirken hata:', error);
         }
     });
+    
     
     client.on('disconnected', (reason) => {
         console.log(`${userId} bağlantısı kesildi: ${reason}`);
