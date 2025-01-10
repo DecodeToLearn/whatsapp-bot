@@ -117,71 +117,6 @@ function createClient(userId) {
         }
     });
 
-
-
-   /* client.on('message', async (message) => {
-        console.log(`Mesaj Alındı: ${message.body}`);
-        try {
-            const chatId = message.from;
-    
-            if (message.hasMedia) {
-                const media = await message.downloadMedia();
-                const msgData = {
-                    type: 'messages',
-                    chatId: chatId,
-                    messages: [{
-                        from: message.from,
-                        body: message.caption || '',
-                        media: {
-                            mimetype: media.mimetype,
-                            url: saveMediaToFile(media),
-                        },
-                        timestamp: message.timestamp,
-                    }]
-                };
-                broadcast(msgData);
-            } else if (message.location) {
-                const msgData = {
-                    type: 'messages',
-                    chatId: chatId,
-                    messages: [{
-                        from: message.from,
-                        location: {
-                            latitude: message.location.latitude,
-                            longitude: message.location.longitude,
-                            description: message.location.description || '',
-                        },
-                        timestamp: message.timestamp,
-                    }]
-                };
-                broadcast(msgData);
-            } else if (message.type === 'contact_card') {
-                const msgData = {
-                    type: 'messages',
-                    chatId: chatId,
-                    messages: [{
-                        from: message.from,
-                        contact: message.vCard,
-                        timestamp: message.timestamp,
-                    }]
-                };
-                broadcast(msgData);
-            } else {
-                const msgData = {
-                    type: 'messages',
-                    chatId: chatId,
-                    messages: [{
-                        from: message.from,
-                        body: message.body,
-                        timestamp: message.timestamp,
-                    }]
-                };
-                broadcast(msgData);
-            }
-        } catch (error) {
-            console.error('Mesaj işlenirken hata:', error);
-        }
-    });*/
     // Medyaları dosya sistemine kaydetme
     const saveMediaToFile = async (media) => {
         if (!media || !media.mimetype || !media.data) {
@@ -215,52 +150,49 @@ function createClient(userId) {
 
     // Mesajları belirli bir Chat ID için getir
 
-// Mesajları belirli bir Chat ID için getir (Lazy Loading destekli)
-app.get('/messages/:chatId', async (req, res) => {
-    try {
-        const { startIndex = 0, limit = 10 } = req.query;
-
-        const activeClient = Object.values(clients)[0];
-        if (!activeClient) {
-            return res.status(404).json({ error: 'Aktif bir WhatsApp oturumu yok.' });
-        }
-
-        const chat = await activeClient.getChatById(req.params.chatId);
-        const messages = await chat.fetchMessages({
-            limit: parseInt(limit),
-            offset: parseInt(startIndex),
-        });
-
-        const formattedMessages = await Promise.all(
-            messages.map(async (msg) => {
-                const formattedMsg = {
-                    from: msg.from,
-                    body: msg.body || '',
-                    media: null,
-                    timestamp: msg.timestamp,
-                };
-
-                if (msg.hasMedia) {
-                    const media = await msg.downloadMedia();
-                    if (media) {
-                        formattedMsg.media = {
-                            mimetype: media.mimetype,
-                            url: await saveMediaToFile(media),
-                        };
+    app.get('/messages/:chatId', async (req, res) => {
+        try {
+            const startIndex = parseInt(req.query.startIndex) || 0;
+            const limit = parseInt(req.query.limit) || 10;
+    
+            const activeClient = Object.values(clients)[0];
+            if (!activeClient) {
+                return res.status(404).json({ error: 'Aktif bir WhatsApp oturumu yok.' });
+            }
+    
+            const chat = await activeClient.getChatById(req.params.chatId);
+            const messages = await chat.fetchMessages({ limit, offset: startIndex });
+    
+            const formattedMessages = await Promise.all(
+                messages.map(async (msg) => {
+                    const formattedMsg = {
+                        from: msg.from,
+                        body: msg.body || '',
+                        media: null,
+                        timestamp: msg.timestamp,
+                    };
+    
+                    if (msg.hasMedia) {
+                        const media = await msg.downloadMedia();
+                        if (media) {
+                            formattedMsg.media = {
+                                mimetype: media.mimetype,
+                                url: await saveMediaToFile(media),
+                            };
+                        }
                     }
-                }
-
-                return formattedMsg;
-            })
-        );
-
-        res.status(200).json({ messages: formattedMessages });
-    } catch (error) {
-        console.error('Mesajlar alınırken hata:', error);
-        res.status(500).json({ error: 'Mesajlar alınırken hata oluştu.' });
-    }
-});
-
+    
+                    return formattedMsg;
+                })
+            );
+    
+            res.status(200).json({ messages: formattedMessages });
+        } catch (error) {
+            console.error('Mesajlar alınırken hata:', error);
+            res.status(500).json({ error: 'Mesajlar alınırken hata oluştu.' });
+        }
+    });
+    
 
 
     
