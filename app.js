@@ -94,7 +94,27 @@ function createClient(userId) {
         }
     });
 
- 
+    // Kontakları döndüren endpoint
+    app.get('/contacts', async (req, res) => {
+        try {
+            const activeClient = Object.values(clients)[0];
+            if (!activeClient) {
+                return res.status(404).json({ error: 'Aktif bir WhatsApp oturumu yok.' });
+            }
+
+            const contacts = await activeClient.getContacts();
+            const formattedContacts = contacts.map(contact => ({
+                id: contact.id._serialized,
+                name: contact.name || contact.pushname || contact.id.user,
+            }));
+
+            res.status(200).json({ contacts: formattedContacts });
+        } catch (error) {
+            console.error('Kontaklar alınırken hata:', error);
+            res.status(500).json({ error: 'Kontaklar alınırken hata oluştu.' });
+        }
+    });
+
 
 
    /* client.on('message', async (message) => {
@@ -162,6 +182,11 @@ function createClient(userId) {
     });*/
     // Medyaları dosya sistemine kaydetme
     const saveMediaToFile = async (media) => {
+        if (!media || !media.mimetype || !media.data) {
+            console.error('Geçersiz medya dosyası.');
+            return null;
+        }
+    
         const mediaDir = path.join(__dirname, 'media');
     
         // 📁 Klasör yoksa oluştur
@@ -181,6 +206,7 @@ function createClient(userId) {
             return null;
         }
     };
+    
     
 
     // Mesajları belirli bir Chat ID için getir
@@ -207,10 +233,14 @@ app.get('/messages/:chatId', async (req, res) => {
 
                 if (msg.hasMedia) {
                     const media = await msg.downloadMedia();
-                    formattedMsg.media = {
-                        mimetype: media.mimetype,
-                        url: await saveMediaToFile(media),
-                    };
+                    if (media) {
+                        formattedMsg.media = {
+                            mimetype: media.mimetype,
+                            url: await saveMediaToFile(media),
+                        };
+                    } else {
+                        console.warn(`Medya indirilemedi: ${msg.from}`);
+                    }
                 }
 
                 return formattedMsg;
