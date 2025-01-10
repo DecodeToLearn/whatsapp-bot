@@ -25,7 +25,9 @@ const corsOptions = {
 };
 
 // Medya dosyalarını statik olarak sun
-app.use('/media', express.static(path.join(__dirname, 'media')));
+app.use('/media', express.static(path.join(__dirname, 'media'), {
+    maxAge: '1d', // Tarayıcı cache'te 7 gün saklar
+}));
 app.use(cors(corsOptions));
 app.use(bodyParser.json());
 
@@ -65,7 +67,7 @@ function createClient(userId) {
                 '--disable-gpu',
             ],
             defaultViewport: null,
-            timeout: 30000,
+            timeout: 60000,
         },
     });
 
@@ -213,16 +215,21 @@ function createClient(userId) {
 
     // Mesajları belirli bir Chat ID için getir
 
-// Mesajları belirli bir Chat ID için getir (Son 20 mesaj)
+// Mesajları belirli bir Chat ID için getir (Lazy Loading destekli)
 app.get('/messages/:chatId', async (req, res) => {
     try {
+        const { startIndex = 0, limit = 10 } = req.query;
+
         const activeClient = Object.values(clients)[0];
         if (!activeClient) {
             return res.status(404).json({ error: 'Aktif bir WhatsApp oturumu yok.' });
         }
 
         const chat = await activeClient.getChatById(req.params.chatId);
-        const messages = await chat.fetchMessages({ limit: 20 });
+        const messages = await chat.fetchMessages({
+            limit: parseInt(limit),
+            offset: parseInt(startIndex),
+        });
 
         const formattedMessages = await Promise.all(
             messages.map(async (msg) => {
@@ -240,8 +247,6 @@ app.get('/messages/:chatId', async (req, res) => {
                             mimetype: media.mimetype,
                             url: await saveMediaToFile(media),
                         };
-                    } else {
-                        console.warn(`Medya indirilemedi: ${msg.from}`);
                     }
                 }
 
@@ -255,6 +260,7 @@ app.get('/messages/:chatId', async (req, res) => {
         res.status(500).json({ error: 'Mesajlar alınırken hata oluştu.' });
     }
 });
+
 
 
     
