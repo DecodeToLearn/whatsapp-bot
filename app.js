@@ -162,9 +162,16 @@ function createClient(userId) {
     });*/
     // Medyaları dosya sistemine kaydetme
     const saveMediaToFile = async (media) => {
+        const mediaDir = path.join(__dirname, 'media');
+    
+        // 📁 Klasör yoksa oluştur
+        if (!fs.existsSync(mediaDir)) {
+            fs.mkdirSync(mediaDir);
+        }
+    
         const extension = media.mimetype.split('/')[1];
         const fileName = `${Date.now()}.${extension}`;
-        const filePath = path.join(__dirname, 'media', fileName);
+        const filePath = path.join(mediaDir, fileName);
     
         try {
             await fs.promises.writeFile(filePath, media.data, 'base64');
