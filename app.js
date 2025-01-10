@@ -200,12 +200,14 @@ function createClient(userId) {
     
         try {
             await fs.promises.writeFile(filePath, media.data, 'base64');
-            return `/media/${fileName}`;
+            // 🔥 Tam URL ile döndür
+            return `https://whatsapp-bot-ie3t.onrender.com/media/${fileName}`;
         } catch (error) {
             console.error('Medya dosyası kaydedilirken hata:', error);
             return null;
         }
     };
+    
     
     
 
