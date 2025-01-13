@@ -167,7 +167,7 @@ function createClient(userId) {
     
             // Gelen mesajları slice ile böl ve sadece istenilen aralıktaki mesajları döndür
             const paginatedMessages = allMessages.slice(startIndex, startIndex + limit);
-    
+            console.log(`Fetching messages with limit: ${limit}, offset: ${startIndex}`);
             const formattedMessages = await Promise.all(
                 paginatedMessages.map(async (msg) => {
                     const formattedMsg = {
