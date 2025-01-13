@@ -161,9 +161,11 @@ function createClient(userId) {
             }
     
             const chat = await activeClient.getChatById(req.params.chatId);
+    
+            // Son gelen mesajları ters sırayla al (en son gelen en başta)
             const messages = await chat.fetchMessages({ limit: startIndex + limit });
-
-            // İstenilen aralıktaki mesajları döndür
+    
+            // Sadece istenen aralıktaki mesajları döndür
             const paginatedMessages = messages.slice(startIndex, startIndex + limit);
     
             const formattedMessages = await Promise.all(
