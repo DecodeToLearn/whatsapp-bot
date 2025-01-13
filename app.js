@@ -170,7 +170,8 @@ function createClient(userId) {
     
             const messages = await chat.fetchMessages(options);
     
-            console.log(`Fetching messages with limit: ${limit}, before: ${beforeTimestamp}`);
+            // Mesajların sıralamasını kontrol et ve doğru logla
+            console.log(`Fetching messages with limit: ${limit}, before: ${beforeTimestamp || 'Latest'}`);
             const formattedMessages = await Promise.all(
                 messages.map(async (msg) => {
                     const formattedMsg = {
