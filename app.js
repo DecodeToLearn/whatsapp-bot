@@ -152,8 +152,8 @@ function createClient(userId) {
 
     app.get('/messages/:chatId', async (req, res) => {
         try {
+            const startIndex = parseInt(req.query.startIndex) || 0;
             const limit = parseInt(req.query.limit) || 10;
-            const beforeTimestamp = req.query.before ? parseInt(req.query.before) : undefined;
     
             const activeClient = Object.values(clients)[0];
             if (!activeClient) {
@@ -162,15 +162,13 @@ function createClient(userId) {
     
             const chat = await activeClient.getChatById(req.params.chatId);
     
-            // Timestamp'e göre mesajları çek
-            const options = { limit };
-            if (beforeTimestamp) {
-                options.before = beforeTimestamp;
-            }
+            // 🔧 Sadece istenilen aralıktaki mesajları çek
+            const messages = await chat.fetchMessages({
+                limit: parseInt(limit),
+                offset: parseInt(startIndex),
+            });
     
-            const messages = await chat.fetchMessages(options);
-    
-            console.log(`Fetching messages with limit: ${limit}, before: ${beforeTimestamp}`);
+            console.log(`Fetching messages with limit: ${limit}, offset: ${startIndex}`);
             const formattedMessages = await Promise.all(
                 messages.map(async (msg) => {
                     const formattedMsg = {
