@@ -162,11 +162,11 @@ function createClient(userId) {
     
             const chat = await activeClient.getChatById(req.params.chatId);
     
-            // Son gelen mesajları ters sırayla al (en son gelen en başta)
-            const messages = await chat.fetchMessages({ limit: startIndex + limit });
+            // Offset yerine doğrudan son mesajdan itibaren mesajları çek
+            const allMessages = await chat.fetchMessages({ limit: startIndex + limit });
     
-            // Sadece istenen aralıktaki mesajları döndür
-            const paginatedMessages = messages.slice(startIndex, startIndex + limit);
+            // Gelen mesajları slice ile böl ve sadece istenilen aralıktaki mesajları döndür
+            const paginatedMessages = allMessages.slice(startIndex, startIndex + limit);
     
             const formattedMessages = await Promise.all(
                 paginatedMessages.map(async (msg) => {
