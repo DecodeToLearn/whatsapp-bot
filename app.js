@@ -161,10 +161,13 @@ function createClient(userId) {
             }
     
             const chat = await activeClient.getChatById(req.params.chatId);
-            const messages = await chat.fetchMessages({ limit, offset: startIndex });
+            const messages = await chat.fetchMessages({ limit: startIndex + limit });
+
+            // İstenilen aralıktaki mesajları döndür
+            const paginatedMessages = messages.slice(startIndex, startIndex + limit);
     
             const formattedMessages = await Promise.all(
-                messages.map(async (msg) => {
+                paginatedMessages.map(async (msg) => {
                     const formattedMsg = {
                         from: msg.from,
                         body: msg.body || '',
