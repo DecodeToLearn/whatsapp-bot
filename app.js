@@ -67,7 +67,7 @@ function createClient(userId) {
                 '--disable-gpu',
             ],
             defaultViewport: null,
-            timeout: 60000,
+            timeout: 1200000,
         },
     });
 
