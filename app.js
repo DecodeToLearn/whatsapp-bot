@@ -182,33 +182,39 @@ function createClient(userId) {
     
                     // ✅ Eğer mesajın medyası varsa işle
                     if (msg.hasMedia) {
-                        const media = await msg.downloadMedia();
-                        if (media) {
-                            const extension = media.mimetype?.split('/')[1] || 'unknown';
-                            const mediaFileName = `${msg.timestamp}_${msg.id?._serialized}.${extension}`;
-                            const mediaFilePath = path.join(__dirname, 'media', mediaFileName);
-    
-                            // ✅ Medya dosyasını önceden kaydedildiyse URL döndür
-                            if (fs.existsSync(mediaFilePath)) {
-                                console.log('Medya dosyası zaten mevcut:', mediaFilePath);
-                                formattedMsg.media = {
-                                    mimetype: media.mimetype,
-                                    url: `https://whatsapp-bot-ie3t.onrender.com/media/${mediaFileName}`,
-                                };
-                            } else {
-                                // ✅ Dosya yoksa indir ve kaydet
-                                const savedMediaUrl = await saveMediaToFile(media, msg.id?._serialized, msg.timestamp);
-                                if (savedMediaUrl) {
+                        const extension = msg.mimetype ? msg.mimetype.split('/')[1] : 'unknown';
+                        const mediaFilePath = path.join(
+                            __dirname,
+                            'media',
+                            `${msg.timestamp}_${msg.id._serialized}.${extension}`
+                        );
+                    
+                        if (fs.existsSync(mediaFilePath)) {
+                            // ✅ Dosya zaten mevcutsa, URL'yi doğrudan döndür
+                            console.log('📂 Medya dosyası zaten mevcut:', mediaFilePath);
+                            formattedMsg.media = {
+                                mimetype: msg.mimetype,
+                                url: `https://whatsapp-bot-ie3t.onrender.com/media/${msg.timestamp}_${msg.id._serialized}.${extension}`,
+                            };
+                        } else {
+                            try {
+                                // 🔥 Medya dosyasını indir
+                                const media = await msg.downloadMedia();
+                                if (media) {
+                                    console.log('✅ Medya başarıyla indirildi:', mediaFilePath);
                                     formattedMsg.media = {
                                         mimetype: media.mimetype,
-                                        url: savedMediaUrl,
+                                        url: await saveMediaToFile(media, msg.id._serialized, msg.timestamp),
                                     };
+                                } else {
+                                    console.warn(`⚠️ Medya indirilemedi veya bulunamadı: ${msg.id._serialized}`);
                                 }
+                            } catch (error) {
+                                console.error(`❌ Medya indirme sırasında hata oluştu: ${msg.id._serialized}`, error);
                             }
-                        } else {
-                            console.warn('Medya indirme başarısız:', msg.id?._serialized || 'ID Yok');
                         }
                     }
+                    
     
                     return formattedMsg;
                 })
