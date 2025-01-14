@@ -186,14 +186,14 @@ function createClient(userId) {
                             console.warn('⚠️ Mesaj ID boş, medya indirme işlemi atlandı.');
                             return formattedMsg;
                         }
-                    
+    
                         const extension = msg.mimetype ? msg.mimetype.split('/')[1] : 'bin';
                         const mediaFilePath = path.join(
                             __dirname,
                             'media',
                             `${msg.timestamp}_${msg.id._serialized}.${extension}`
                         );
-                    
+    
                         if (fs.existsSync(mediaFilePath)) {
                             console.log('📂 Medya dosyası zaten mevcut:', mediaFilePath);
                             formattedMsg.media = {
@@ -205,17 +205,15 @@ function createClient(userId) {
                                 const media = await msg.downloadMedia();
                                 if (media) {
                                     console.log('✅ Medya başarıyla indirildi:', mediaFilePath);
-                    
+    
+                                    // 🛠 Medya dosyasını kaydet
+                                    await fs.promises.writeFile(mediaFilePath, media.data, 'base64');
+    
                                     // ✅ Video dosyası kontrolü
                                     if (media.mimetype && media.mimetype.startsWith('video/')) {
-                                        if (!fs.existsSync(mediaFilePath)) {
-                                            console.warn(`⚠️ Video dosyası mevcut değil: ${mediaFilePath}`);
-                                            return null;
-                                        }
+                                        console.log('🎥 Video dosyası kaydedildi:', mediaFilePath);
                                     }
-                    
-                                    // Medya dosyasını kaydet
-                                    await fs.promises.writeFile(mediaFilePath, media.data, 'base64');
+    
                                     formattedMsg.media = {
                                         mimetype: media.mimetype,
                                         url: `https://whatsapp-bot-ie3t.onrender.com/media/${msg.timestamp}_${msg.id._serialized}.${extension}`,
@@ -228,8 +226,6 @@ function createClient(userId) {
                             }
                         }
                     }
-                    
-                    
     
                     return formattedMsg;
                 })
@@ -241,11 +237,7 @@ function createClient(userId) {
             res.status(500).json({ error: 'Mesajlar alınırken hata oluştu.' });
         }
     });
-    
-
-
-
-    
+  
     client.on('disconnected', (reason) => {
         console.log(`${userId} bağlantısı kesildi: ${reason}`);
         setTimeout(() => createClient(userId), 5000);
