@@ -180,9 +180,14 @@ function createClient(userId) {
                     console.log(`Mesaj ID: ${msg.id?._serialized || 'ID Yok'}`);
                     console.log(`Medya Var mı: ${msg.hasMedia ? 'Evet' : 'Hayır'}`);
     
-                    // ✅ Eğer mesajın medyası varsa işle
                     if (msg.hasMedia) {
-                        const extension = msg.mimetype ? msg.mimetype.split('/')[1] : 'unknown';
+                        // ✅ Mesaj ID'si boşsa uyarı ver ve medya indirme işlemini atla
+                        if (!msg.id?._serialized) {
+                            console.warn('⚠️ Mesaj ID boş, medya indirme işlemi atlandı.');
+                            return formattedMsg;
+                        }
+                    
+                        const extension = msg.mimetype ? msg.mimetype.split('/')[1] : 'bin';
                         const mediaFilePath = path.join(
                             __dirname,
                             'media',
@@ -190,7 +195,6 @@ function createClient(userId) {
                         );
                     
                         if (fs.existsSync(mediaFilePath)) {
-                            // ✅ Dosya zaten mevcutsa, URL'yi doğrudan döndür
                             console.log('📂 Medya dosyası zaten mevcut:', mediaFilePath);
                             formattedMsg.media = {
                                 mimetype: msg.mimetype,
@@ -198,13 +202,23 @@ function createClient(userId) {
                             };
                         } else {
                             try {
-                                // 🔥 Medya dosyasını indir
                                 const media = await msg.downloadMedia();
                                 if (media) {
                                     console.log('✅ Medya başarıyla indirildi:', mediaFilePath);
+                    
+                                    // ✅ Video dosyası kontrolü
+                                    if (media.mimetype && media.mimetype.startsWith('video/')) {
+                                        if (!fs.existsSync(mediaFilePath)) {
+                                            console.warn(`⚠️ Video dosyası mevcut değil: ${mediaFilePath}`);
+                                            return null;
+                                        }
+                                    }
+                    
+                                    // Medya dosyasını kaydet
+                                    await fs.promises.writeFile(mediaFilePath, media.data, 'base64');
                                     formattedMsg.media = {
                                         mimetype: media.mimetype,
-                                        url: await saveMediaToFile(media, msg.id._serialized, msg.timestamp),
+                                        url: `https://whatsapp-bot-ie3t.onrender.com/media/${msg.timestamp}_${msg.id._serialized}.${extension}`,
                                     };
                                 } else {
                                     console.warn(`⚠️ Medya indirilemedi veya bulunamadı: ${msg.id._serialized}`);
@@ -214,6 +228,7 @@ function createClient(userId) {
                             }
                         }
                     }
+                    
                     
     
                     return formattedMsg;
