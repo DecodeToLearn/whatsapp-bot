@@ -117,7 +117,6 @@ function createClient(userId) {
         }
     });
 
-    // Medyaları dosya sistemine kaydetme
     const saveMediaToFile = async (media, msgId, timestamp) => {
         if (!media || !media.mimetype || !media.data) {
             console.error('Geçersiz medya dosyası.');
@@ -132,7 +131,7 @@ function createClient(userId) {
         }
     
         // ✅ Dosya adı belirleme: timestamp + messageId
-        const extension = media.mimetype.split('/')[1];
+        const extension = media.mimetype.split('/')[1] || 'unknown';
         const fileName = `${timestamp}_${msgId}.${extension}`;
         const filePath = path.join(mediaDir, fileName);
     
@@ -156,45 +155,44 @@ function createClient(userId) {
     
     
 
-    // Mesajları belirli bir Chat ID için getir
+// Mesajları belirli bir Chat ID için getir
+app.get('/messages/:chatId', async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 20;
 
-    app.get('/messages/:chatId', async (req, res) => {
-        try {
-            const limit = parseInt(req.query.limit) || 20;
-    
-            const activeClient = Object.values(clients)[0];
-            if (!activeClient) {
-                return res.status(404).json({ error: 'Aktif bir WhatsApp oturumu yok.' });
-            }
-    
-            const chat = await activeClient.getChatById(req.params.chatId);
-      
-            const messages = await chat.fetchMessages({ limit });
+        const activeClient = Object.values(clients)[0];
+        if (!activeClient) {
+            return res.status(404).json({ error: 'Aktif bir WhatsApp oturumu yok.' });
+        }
 
-            const formattedMessages = await Promise.all(
-                messages.map(async (msg) => {
-                    const formattedMsg = {
-                        from: msg.from,
-                        body: msg.body || '',
-                        media: null,
-                        timestamp: msg.timestamp,
-                    };
-    
-                // ✅ Sadece medya dosyası yoksa indir
-                if (msg.hasMedia) {
-                    const mediaFilePath = path.join(
-                        __dirname,
-                        'media',
-                        `${msg.timestamp}_${msg.id._serialized}.${msg.mimetype.split('/')[1]}`
-                    );
+        const chat = await activeClient.getChatById(req.params.chatId);
 
+        const messages = await chat.fetchMessages({ limit });
+
+        const formattedMessages = await Promise.all(
+            messages.map(async (msg) => {
+                const formattedMsg = {
+                    from: msg.from,
+                    body: msg.body || '',
+                    media: null,
+                    timestamp: msg.timestamp,
+                };
+
+                // ✅ Sadece medya dosyası varsa işle
+                if (msg.hasMedia && msg.mimetype) {
+                    const extension = msg.mimetype.split('/')[1] || 'unknown';
+                    const mediaFileName = `${msg.timestamp}_${msg.id._serialized}.${extension}`;
+                    const mediaFilePath = path.join(__dirname, 'media', mediaFileName);
+
+                    // ✅ Medya dosyası önceden kaydedildiyse
                     if (fs.existsSync(mediaFilePath)) {
                         console.log('Medya dosyası zaten mevcut:', mediaFilePath);
                         formattedMsg.media = {
                             mimetype: msg.mimetype,
-                            url: `https://whatsapp-bot-ie3t.onrender.com/media/${msg.timestamp}_${msg.id._serialized}.${msg.mimetype.split('/')[1]}`,
+                            url: `https://whatsapp-bot-ie3t.onrender.com/media/${mediaFileName}`,
                         };
                     } else {
+                        // ✅ Medya dosyası yoksa indir ve kaydet
                         const media = await msg.downloadMedia();
                         if (media) {
                             formattedMsg.media = {
@@ -204,18 +202,18 @@ function createClient(userId) {
                         }
                     }
                 }
-    
-                    return formattedMsg;
-                })
-            );
-    
-            res.status(200).json({ messages: formattedMessages });
-        } catch (error) {
-            console.error('Mesajlar alınırken hata:', error);
-            res.status(500).json({ error: 'Mesajlar alınırken hata oluştu.' });
-        }
-    });
-    
+
+                return formattedMsg;
+            })
+        );
+
+        res.status(200).json({ messages: formattedMessages });
+    } catch (error) {
+        console.error('Mesajlar alınırken hata:', error);
+        res.status(500).json({ error: 'Mesajlar alınırken hata oluştu.' });
+    }
+});
+
 
 
     
