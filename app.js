@@ -155,64 +155,72 @@ function createClient(userId) {
     
     
 
-// Mesajları belirli bir Chat ID için getir
-app.get('/messages/:chatId', async (req, res) => {
-    try {
-        const limit = parseInt(req.query.limit) || 20;
-
-        const activeClient = Object.values(clients)[0];
-        if (!activeClient) {
-            return res.status(404).json({ error: 'Aktif bir WhatsApp oturumu yok.' });
-        }
-
-        const chat = await activeClient.getChatById(req.params.chatId);
-
-        const messages = await chat.fetchMessages({ limit });
-
-        const formattedMessages = await Promise.all(
-            messages.map(async (msg) => {
-                const formattedMsg = {
-                    from: msg.from,
-                    body: msg.body || '',
-                    media: null,
-                    timestamp: msg.timestamp,
-                };
-
-                // ✅ Sadece medya dosyası varsa işle
-                if (msg.hasMedia && msg.mimetype) {
-                    const extension = msg.mimetype.split('/')[1] || 'unknown';
-                    const mediaFileName = `${msg.timestamp}_${msg.id._serialized}.${extension}`;
-                    const mediaFilePath = path.join(__dirname, 'media', mediaFileName);
-
-                    // ✅ Medya dosyası önceden kaydedildiyse
-                    if (fs.existsSync(mediaFilePath)) {
-                        console.log('Medya dosyası zaten mevcut:', mediaFilePath);
-                        formattedMsg.media = {
-                            mimetype: msg.mimetype,
-                            url: `https://whatsapp-bot-ie3t.onrender.com/media/${mediaFileName}`,
-                        };
-                    } else {
-                        // ✅ Medya dosyası yoksa indir ve kaydet
+    app.get('/messages/:chatId', async (req, res) => {
+        try {
+            const limit = parseInt(req.query.limit) || 20;
+            const activeClient = Object.values(clients)[0];
+    
+            if (!activeClient) {
+                return res.status(404).json({ error: 'Aktif bir WhatsApp oturumu yok.' });
+            }
+    
+            const chat = await activeClient.getChatById(req.params.chatId);
+            const messages = await chat.fetchMessages({ limit });
+    
+            const formattedMessages = await Promise.all(
+                messages.map(async (msg) => {
+                    const formattedMsg = {
+                        from: msg.from,
+                        body: msg.body || '',
+                        media: null,
+                        timestamp: msg.timestamp,
+                    };
+    
+                    // 📝 **Log mesaj ID ve medya durumu**
+                    console.log(`Mesaj ID: ${msg.id?._serialized || 'ID Yok'}`);
+                    console.log(`Medya Var mı: ${msg.hasMedia ? 'Evet' : 'Hayır'}`);
+    
+                    // ✅ Eğer mesajın medyası varsa işle
+                    if (msg.hasMedia) {
                         const media = await msg.downloadMedia();
                         if (media) {
-                            formattedMsg.media = {
-                                mimetype: media.mimetype,
-                                url: await saveMediaToFile(media, msg.id._serialized, msg.timestamp),
-                            };
+                            const extension = media.mimetype?.split('/')[1] || 'unknown';
+                            const mediaFileName = `${msg.timestamp}_${msg.id?._serialized}.${extension}`;
+                            const mediaFilePath = path.join(__dirname, 'media', mediaFileName);
+    
+                            // ✅ Medya dosyasını önceden kaydedildiyse URL döndür
+                            if (fs.existsSync(mediaFilePath)) {
+                                console.log('Medya dosyası zaten mevcut:', mediaFilePath);
+                                formattedMsg.media = {
+                                    mimetype: media.mimetype,
+                                    url: `https://whatsapp-bot-ie3t.onrender.com/media/${mediaFileName}`,
+                                };
+                            } else {
+                                // ✅ Dosya yoksa indir ve kaydet
+                                const savedMediaUrl = await saveMediaToFile(media, msg.id?._serialized, msg.timestamp);
+                                if (savedMediaUrl) {
+                                    formattedMsg.media = {
+                                        mimetype: media.mimetype,
+                                        url: savedMediaUrl,
+                                    };
+                                }
+                            }
+                        } else {
+                            console.warn('Medya indirme başarısız:', msg.id?._serialized || 'ID Yok');
                         }
                     }
-                }
-
-                return formattedMsg;
-            })
-        );
-
-        res.status(200).json({ messages: formattedMessages });
-    } catch (error) {
-        console.error('Mesajlar alınırken hata:', error);
-        res.status(500).json({ error: 'Mesajlar alınırken hata oluştu.' });
-    }
-});
+    
+                    return formattedMsg;
+                })
+            );
+    
+            res.status(200).json({ messages: formattedMessages });
+        } catch (error) {
+            console.error('Mesajlar alınırken hata:', error);
+            res.status(500).json({ error: 'Mesajlar alınırken hata oluştu.' });
+        }
+    });
+    
 
 
 
