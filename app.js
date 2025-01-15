@@ -154,7 +154,7 @@ function createClient(userId) {
     
     
     
-
+    const downloadedMedia = new Set();
     app.get('/messages/:chatId', async (req, res) => {
         try {
             const limit = parseInt(req.query.limit) || 20;
