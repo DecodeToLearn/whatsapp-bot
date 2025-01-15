@@ -1,13 +1,13 @@
 // ✨ WhatsApp Web.js Client App (Optimized)
 // 🎯 Designed with KG08 Rules
-
+require('dotenv').config();
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
 const cors = require('cors');
 const express = require('express');
 const bodyParser = require('body-parser');
 const WebSocket = require('ws');
-require('dotenv').config();
+
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
@@ -99,28 +99,20 @@ function createClient(userId) {
             console.error('Kontaklar alınırken hata:', error);
         }
     });
-    async function checkUnreadMessages(client) {
-        const chats = await client.getChats();
-        for (const chat of chats) {
-            if (chat.unreadCount > 0) {
-                console.log(`Okunmamış mesaj sayısı: ${chat.unreadCount}, Chat ID: ${chat.id._serialized}`);
-                const unreadMessages = await chat.fetchMessages({ limit: chat.unreadCount });
-                for (const msg of unreadMessages) {
-                    if (!msg.isRead) {
-                        setTimeout(async () => {
-                            const isReplied = await checkIfReplied(msg);
-                            if (!isReplied) {
-                                const response = await getChatGPTResponse(msg);
-                                if (response) {
-                                    await msg.reply(response);
-                                }
-                            }
-                        }, 5 * 60 * 1000); // 5 dakika bekle
-                    }
+    client.on('message', async (msg) => {
+        if (msg.fromMe || msg.hasMedia) return;
+    
+        setTimeout(async () => {
+            const isReplied = await checkIfReplied(msg);
+            if (!isReplied) {
+                const response = await getChatGPTResponse(msg);
+                if (response) {
+                    await msg.reply(response);
                 }
             }
-        }
-    }
+        }, 5 * 60 * 1000); // 5 dakika bekle
+    });
+
     // Kontakları döndüren endpoint
     app.get('/contacts', async (req, res) => {
         try {
@@ -335,20 +327,29 @@ async function checkIfReplied(msg) {
     return replies.length > 0;
 }
 
-client.on('message', async (msg) => {
-    if (msg.fromMe || msg.hasMedia) return;
 
-    setTimeout(async () => {
-        const isReplied = await checkIfReplied(msg);
-        if (!isReplied) {
-            const response = await getChatGPTResponse(msg);
-            if (response) {
-                await msg.reply(response);
+async function checkUnreadMessages(client) {
+    const chats = await client.getChats();
+    for (const chat of chats) {
+        if (chat.unreadCount > 0) {
+            console.log(`Okunmamış mesaj sayısı: ${chat.unreadCount}, Chat ID: ${chat.id._serialized}`);
+            const unreadMessages = await chat.fetchMessages({ limit: chat.unreadCount });
+            for (const msg of unreadMessages) {
+                if (!msg.isRead) {
+                    setTimeout(async () => {
+                        const isReplied = await checkIfReplied(msg);
+                        if (!isReplied) {
+                            const response = await getChatGPTResponse(msg);
+                            if (response) {
+                                await msg.reply(response);
+                            }
+                        }
+                    }, 5 * 60 * 1000); // 5 dakika bekle
+                }
             }
         }
-    }, 5 * 60 * 1000); // 5 dakika bekle
-});
-
+    }
+}
 async function getChatGPTResponse(msg) {
     const apiKey = process.env.OPENAI_API_KEY;
     const apiUrl = 'https://api.openai.com/v1/chat/completions';
