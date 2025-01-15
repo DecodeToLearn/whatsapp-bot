@@ -351,11 +351,11 @@ async function checkUnreadMessages(client) {
 }
 
 // checkUnreadMessages fonksiyonunu her 5 dakikada bir tetikleyin
-setInterval(() => {
-    Object.values(clients).forEach(client => {
-        checkUnreadMessages(client);
-    });
-}, 5 * 60 * 1000); // 5 dakika
+// setInterval(() => {
+//     Object.values(clients).forEach(client => {
+//         checkUnreadMessages(client);
+//     });
+// }, 5 * 60 * 1000); // 5 dakika
 
 async function getChatGPTResponse(msg) {
     const apiKey = process.env.OPENAI_API_KEY;
