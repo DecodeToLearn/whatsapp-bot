@@ -323,8 +323,7 @@ function broadcast(data) {
     });
 }
 async function checkIfReplied(msg) {
-    const replies = await msg.getReplies();
-    return replies.length > 0;
+    return msg.hasQuotedMsg;
 }
 
 
@@ -350,6 +349,14 @@ async function checkUnreadMessages(client) {
         }
     }
 }
+
+// checkUnreadMessages fonksiyonunu her 5 dakikada bir tetikleyin
+setInterval(() => {
+    Object.values(clients).forEach(client => {
+        checkUnreadMessages(client);
+    });
+}, 5 * 60 * 1000); // 5 dakika
+
 async function getChatGPTResponse(msg) {
     const apiKey = process.env.OPENAI_API_KEY;
     const apiUrl = 'https://api.openai.com/v1/chat/completions';
