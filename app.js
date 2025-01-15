@@ -50,6 +50,8 @@ app.get('/check-user/:userId', async (req, res) => {
         res.json({ connected: false });
     }
 });
+let isInitialCheckDone = false; // Bayrak tanımlama
+
 function createClient(userId) {
     const client = new Client({
         authStrategy: new LocalAuth({
@@ -95,22 +97,21 @@ function createClient(userId) {
             // Okunmamış mesajları kontrol et
             broadcast({ type: 'contacts', contacts, userId });
             checkUnreadMessages(client);
+            isInitialCheckDone = true; // İlk kontrol tamamlandı
         } catch (error) {
             console.error('Kontaklar alınırken hata:', error);
         }
     });
     client.on('message', async (msg) => {
         if (msg.fromMe || msg.hasMedia) return;
-    
-        setTimeout(async () => {
-            const isReplied = await checkIfReplied(msg);
-            if (!isReplied) {
-                const response = await getChatGPTResponse(msg);
-                if (response) {
-                    await msg.reply(response);
-                }
+
+        const isReplied = await checkIfReplied(msg);
+        if (!isReplied) {
+            const response = await getChatGPTResponse(msg);
+            if (response) {
+                await msg.reply(response);
             }
-        }, 5 * 60 * 1000); // 5 dakika bekle
+        }
     });
 
     // Kontakları döndüren endpoint
@@ -335,15 +336,13 @@ async function checkUnreadMessages(client) {
             const unreadMessages = await chat.fetchMessages({ limit: chat.unreadCount });
             for (const msg of unreadMessages) {
                 if (!msg.isRead) {
-                    setTimeout(async () => {
-                        const isReplied = await checkIfReplied(msg);
-                        if (!isReplied) {
-                            const response = await getChatGPTResponse(msg);
-                            if (response) {
-                                await msg.reply(response);
-                            }
+                    const isReplied = await checkIfReplied(msg);
+                    if (!isReplied) {
+                        const response = await getChatGPTResponse(msg);
+                        if (response) {
+                            await msg.reply(response);
                         }
-                    }, 5 * 60 * 1000); // 5 dakika bekle
+                    }
                 }
             }
         }
@@ -351,11 +350,13 @@ async function checkUnreadMessages(client) {
 }
 
 // checkUnreadMessages fonksiyonunu her 5 dakikada bir tetikleyin
-// setInterval(() => {
-//     Object.values(clients).forEach(client => {
-//         checkUnreadMessages(client);
-//     });
-// }, 5 * 60 * 1000); // 5 dakika
+setInterval(async () => {
+    if (isInitialCheckDone) {
+        for (const client of Object.values(clients)) {
+            await checkUnreadMessages(client);
+        }
+    }
+}, 5 * 60 * 1000); // 5 dakika
 
 async function getChatGPTResponse(msg) {
     const apiKey = process.env.OPENAI_API_KEY;
