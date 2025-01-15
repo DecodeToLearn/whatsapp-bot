@@ -7,6 +7,7 @@ const cors = require('cors');
 const express = require('express');
 const bodyParser = require('body-parser');
 const WebSocket = require('ws');
+require('dotenv').config();
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
@@ -23,7 +24,8 @@ const corsOptions = {
     preflightContinue: false,
     optionsSuccessStatus: 204,
 };
-
+let cachedHtmlTable = null;
+let cachedPdf = null;
 // Medya dosyalarını statik olarak sun
 app.use('/media', express.static(path.join(__dirname, 'media'), {
     maxAge: '1d', // Tarayıcı cache'te 7 gün saklar
@@ -90,12 +92,35 @@ function createClient(userId) {
                 id: contact.id._serialized,
                 name: contact.name || contact.pushname || contact.id.user,
             }));
+            // Okunmamış mesajları kontrol et
             broadcast({ type: 'contacts', contacts, userId });
+            checkUnreadMessages(client);
         } catch (error) {
             console.error('Kontaklar alınırken hata:', error);
         }
     });
-
+    async function checkUnreadMessages(client) {
+        const chats = await client.getChats();
+        for (const chat of chats) {
+            if (chat.unreadCount > 0) {
+                console.log(`Okunmamış mesaj sayısı: ${chat.unreadCount}, Chat ID: ${chat.id._serialized}`);
+                const unreadMessages = await chat.fetchMessages({ limit: chat.unreadCount });
+                for (const msg of unreadMessages) {
+                    if (!msg.isRead) {
+                        setTimeout(async () => {
+                            const isReplied = await checkIfReplied(msg);
+                            if (!isReplied) {
+                                const response = await getChatGPTResponse(msg);
+                                if (response) {
+                                    await msg.reply(response);
+                                }
+                            }
+                        }, 5 * 60 * 1000); // 5 dakika bekle
+                    }
+                }
+            }
+        }
+    }
     // Kontakları döndüren endpoint
     app.get('/contacts', async (req, res) => {
         try {
@@ -305,6 +330,78 @@ function broadcast(data) {
         }
     });
 }
+async function checkIfReplied(msg) {
+    const replies = await msg.getReplies();
+    return replies.length > 0;
+}
+
+client.on('message', async (msg) => {
+    if (msg.fromMe || msg.hasMedia) return;
+
+    setTimeout(async () => {
+        const isReplied = await checkIfReplied(msg);
+        if (!isReplied) {
+            const response = await getChatGPTResponse(msg);
+            if (response) {
+                await msg.reply(response);
+            }
+        }
+    }, 5 * 60 * 1000); // 5 dakika bekle
+});
+
+async function getChatGPTResponse(msg) {
+    const apiKey = process.env.OPENAI_API_KEY;
+    const apiUrl = 'https://api.openai.com/v1/chat/completions';
+    const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+    };
+
+    const promptText = "Sana gelen mesaj da eğer resim varsa resimi analiz et ve mesajın metnini oku doğru bir cevap yaz eğer cevabından emin değilsen bu metini gelen mesajın dilin de yaz\n\n1. Sizin için satış temsilcimiz en kısa sürede bilgi verecek";
+    const data = {
+        model: "gpt-4o-2024-11-20",
+        messages: [
+            {
+                role: "user",
+                content: promptText
+            },
+            {
+                role: "user",
+                content: msg.body
+            }
+        ],
+        max_tokens: 1600,
+        temperature: 0.7
+    };
+
+    if (msg.hasMedia) {
+        const media = await msg.downloadMedia();
+        if (media.mimetype.startsWith('image/')) {
+            const base64Image = `data:${media.mimetype};base64,${media.data}`;
+            data.messages.push({
+                role: "user",
+                content: {
+                    type: "image_url",
+                    image_url: base64Image,
+                    detail: "high"
+                }
+            });
+        } else if (media.mimetype.startsWith('video/')) {
+            console.log('Video mesajı ChatGPT API\'ye gönderilmeyecek.');
+            return null;
+        }
+    }
+
+    try {
+        const response = await axios.post(apiUrl, data, { headers });
+        const reply = response.data.choices[0].message.content.trim();
+        return reply;
+    } catch (error) {
+        console.error('ChatGPT API hatası:', error);
+        return null;
+    }
+}
+
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
