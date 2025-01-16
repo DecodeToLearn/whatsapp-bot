@@ -369,7 +369,23 @@ async function getChatGPTResponse(msg) {
     const questionsFileUrl = 'https://drive.google.com/uc?export=download&id=1kfUA2QYRu6wt8SibOPiz6jo21_hzJTTu';
 
     // JSON dosyasını kontrol et ve indir
-    if (!fs.existsSync(questionsFilePath)) {
+    let downloadFile = false;
+    if (fs.existsSync(questionsFilePath)) {
+        // Sunucudaki dosyanın hash değerini hesapla
+        const localFileHash = await calculateFileHash(questionsFilePath);
+
+        // Linkteki dosyanın hash değerini hesapla
+        const response = await axios.get(questionsFileUrl, { responseType: 'arraybuffer' });
+        const remoteFileHash = crypto.createHash('md5').update(response.data).digest('hex');
+
+        if (localFileHash !== remoteFileHash) {
+            downloadFile = true;
+        }
+    } else {
+        downloadFile = true;
+    }
+
+    if (downloadFile) {
         console.log('JSON dosyası indiriliyor...');
         const response = await axios.get(questionsFileUrl, { responseType: 'stream' });
         const writer = fs.createWriteStream(questionsFilePath);
@@ -383,6 +399,9 @@ async function getChatGPTResponse(msg) {
 
     // JSON dosyasını yükle
     const questionsData = JSON.parse(fs.readFileSync(questionsFilePath, 'utf8'));
+
+    // Gelen mesajın dilini tespit et
+    const detectedLanguage = await detectLanguage(msg.body);
 
     // Gelen sorunun embedding'ini oluştur
     const userQuestionEmbedding = await getEmbedding(msg.body, apiKey);
@@ -461,6 +480,16 @@ async function getChatGPTResponse(msg) {
     }
 }
 
+async function calculateFileHash(filePath) {
+    return new Promise((resolve, reject) => {
+        const hash = crypto.createHash('md5');
+        const stream = fs.createReadStream(filePath);
+        stream.on('data', data => hash.update(data));
+        stream.on('end', () => resolve(hash.digest('hex')));
+        stream.on('error', reject);
+    });
+}
+
 async function getEmbedding(text, apiKey) {
     const apiUrl = 'https://api.openai.com/v1/embeddings';
     const headers = {
@@ -488,6 +517,15 @@ function cosineSimilarity(vec1, vec2) {
     return dotProduct / (magnitude1 * magnitude2);
 }
 
+async function detectLanguage(text) {
+    try {
+        const response = await translate(text);
+        return response.from.language.iso;
+    } catch (error) {
+        console.error('Dil tespiti hatası:', error);
+        return 'tr'; // Varsayılan dil Türkçe
+    }
+}
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
