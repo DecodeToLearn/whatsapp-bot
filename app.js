@@ -366,7 +366,7 @@ async function getChatGPTResponse(msg) {
     }
 
     const questionsFilePath = path.join(__dirname, 'questions.json');
-    const questionsFileUrl = 'https://drive.google.com/file/d/1JqssSHtuuEOzjrIBmbfXhqKWZPkgG7TX/view?usp=sharing';
+    const questionsFileUrl = 'https://drive.google.com/uc?export=download&id=1kfUA2QYRu6wt8SibOPiz6jo21_hzJTTu';
 
     // JSON dosyasını kontrol et ve indir
     let downloadFile = false;
