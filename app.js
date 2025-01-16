@@ -406,7 +406,9 @@ async function getChatGPTResponse(msg) {
     }
 
     try {
+        console.log('ChatGPT API isteği gönderiliyor:', data);
         const response = await axios.post(apiUrl, data, { headers });
+        console.log('ChatGPT API yanıtı alındı:', response.data);
         const reply = response.data.choices[0].message.content.trim();
         return reply;
     } catch (error) {
