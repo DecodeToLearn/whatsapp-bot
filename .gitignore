@@ -9,6 +9,7 @@ package-lock.json
 
 # PHP ile ilgili dosyalar
 send_whatsapp.php
+questions.json
 
 # Sisteme özel dosyalar
 .DS_Store

@@ -364,6 +364,50 @@ async function getChatGPTResponse(msg) {
         console.error('OpenAI API anahtarı tanımlanmamış.');
         return null;
     }
+
+    const questionsFilePath = path.join(__dirname, 'questions.json');
+    const questionsFileUrl = 'https://drive.google.com/uc?export=download&id=1kfUA2QYRu6wt8SibOPiz6jo21_hzJTTu';
+
+    // JSON dosyasını kontrol et ve indir
+    if (!fs.existsSync(questionsFilePath)) {
+        console.log('JSON dosyası indiriliyor...');
+        const response = await axios.get(questionsFileUrl, { responseType: 'stream' });
+        const writer = fs.createWriteStream(questionsFilePath);
+        response.data.pipe(writer);
+        await new Promise((resolve, reject) => {
+            writer.on('finish', resolve);
+            writer.on('error', reject);
+        });
+        console.log('JSON dosyası indirildi.');
+    }
+
+    // JSON dosyasını yükle
+    const questionsData = JSON.parse(fs.readFileSync(questionsFilePath, 'utf8'));
+
+    // Gelen sorunun embedding'ini oluştur
+    const userQuestionEmbedding = await getEmbedding(msg.body, apiKey);
+
+    // JSON'daki soruların embedding'lerini oluştur ve en benzerini bul
+    let bestMatch = null;
+    let highestSimilarity = 0;
+
+    for (const [question, answer] of Object.entries(questionsData)) {
+        const questionEmbedding = await getEmbedding(question, apiKey);
+        const similarity = cosineSimilarity(userQuestionEmbedding, questionEmbedding);
+
+        if (similarity > highestSimilarity) {
+            highestSimilarity = similarity;
+            bestMatch = { question, answer };
+        }
+    }
+
+    // Eğer benzerlik skoru eşik değerin üzerinde ise JSON'daki cevabı döndür
+    if (highestSimilarity >= 0.8) {
+        console.log(`En benzer soru bulundu: ${bestMatch.question} (${highestSimilarity})`);
+        return bestMatch.answer;
+    }
+
+    // Eğer eşleşme bulunmazsa ChatGPT API çağrısı yap
     const apiUrl = 'https://api.openai.com/v1/chat/completions';
     const headers = {
         'Content-Type': 'application/json',
@@ -415,6 +459,33 @@ async function getChatGPTResponse(msg) {
         console.error('ChatGPT API hatası:', error);
         return null;
     }
+}
+
+async function getEmbedding(text, apiKey) {
+    const apiUrl = 'https://api.openai.com/v1/embeddings';
+    const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+    };
+    const data = {
+        model: "text-embedding-ada-002",
+        input: text
+    };
+
+    try {
+        const response = await axios.post(apiUrl, data, { headers });
+        return response.data.data[0].embedding;
+    } catch (error) {
+        console.error('Embedding API hatası:', error);
+        return null;
+    }
+}
+
+function cosineSimilarity(vec1, vec2) {
+    const dotProduct = vec1.reduce((sum, val, i) => sum + val * vec2[i], 0);
+    const magnitude1 = Math.sqrt(vec1.reduce((sum, val) => sum + val * val, 0));
+    const magnitude2 = Math.sqrt(vec2.reduce((sum, val) => sum + val * val, 0));
+    return dotProduct / (magnitude1 * magnitude2);
 }
 
 
