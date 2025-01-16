@@ -360,6 +360,10 @@ setInterval(async () => {
 
 async function getChatGPTResponse(msg) {
     const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+        console.error('OpenAI API anahtarı tanımlanmamış.');
+        return null;
+    }
     const apiUrl = 'https://api.openai.com/v1/chat/completions';
     const headers = {
         'Content-Type': 'application/json',
