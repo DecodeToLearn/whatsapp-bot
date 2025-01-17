@@ -533,42 +533,33 @@ async function getChatGPTResponse(msg) {
 }
 
 async function transcribeAudio(audioBuffer) {
-    const client = new speech.SpeechClient();
-    const audio = {
-        content: audioBuffer.toString('base64'),
-    };
-    const config = {
-        encoding: 'OGG_OPUS',
-        sampleRateHertz: 16000,
-        languageCode: 'tr-TR', // Varsayılan dil Türkçe
-    };
-    const request = {
-        audio: audio,
-        config: config,
-    };
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+        console.error('OpenAI API anahtarı tanımlanmamış.');
+        return '';
+    }
+
+    const formData = new FormData();
+    formData.append("file", new Blob([audioBuffer], { type: 'audio/ogg' }));
+    formData.append("model", "whisper-1");
 
     try {
-        // İlk olarak dil tespiti yap
-        const [operation] = await client.longRunningRecognize({
-            audio: audio,
-            config: {
-                ...config,
-                enableAutomaticPunctuation: true,
-                enableWordTimeOffsets: true,
-                diarizationConfig: {
-                    enableSpeakerDiarization: true,
-                    minSpeakerCount: 1,
-                    maxSpeakerCount: 6,
-                },
-                alternativeLanguageCodes: getSupportedLanguages(), // Desteklenen diller
+        const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+            headers: {
+                Authorization: `Bearer ${apiKey}`,
             },
+            method: "POST",
+            body: formData,
         });
-        const [response] = await operation.promise();
-        const transcription = response.results
-            .map(result => result.alternatives[0].transcript)
-            .join('\n');
-        console.log(`Transcription: ${transcription}`);
-        return transcription;
+
+        const data = await response.json();
+        if (data.text) {
+            console.log(`Transcription: ${data.text}`);
+            return data.text;
+        } else {
+            console.error('Transkripsiyon hatası:', data);
+            return '';
+        }
     } catch (error) {
         console.error('Sesli mesaj transkripsiyon hatası:', error);
         return '';
