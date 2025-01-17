@@ -453,6 +453,7 @@ async function getChatGPTResponse(msg) {
         const media = await msg.downloadMedia();
         const audioBuffer = Buffer.from(media.data, 'base64');
         text = await transcribeAudio(audioBuffer);
+        console.log(`Sesli mesaj metne dönüştürüldü: ${text}`);
     }
 
     // Gelen sorunun embedding'ini oluştur
