@@ -13,6 +13,8 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const speech = require('@google-cloud/speech');
+const ffmpeg = require('fluent-ffmpeg');
+const { Readable } = require('stream');
 
 const app = express();
 const server = require('http').createServer(app);
@@ -328,51 +330,6 @@ function broadcast(data) {
 async function checkIfReplied(msg) {
     return msg.hasQuotedMsg;
 }
-function getSupportedLanguages() {
-    return [
-        'en-US', // İngilizce (ABD)
-        'es-ES', // İspanyolca (İspanya)
-        'fr-FR', // Fransızca (Fransa)
-        'de-DE', // Almanca (Almanya)
-        'it-IT', // İtalyanca (İtalya)
-        'tr-TR', // Türkçe
-        'ru-RU', // Rusça
-        'uk-UA', // Ukraynaca
-        'ar-SA', // Arapça (Suudi Arabistan)
-        'fa-IR', // Farsça (İran)
-        'zh-CN', // Çince (Mandarin)
-        'ja-JP', // Japonca
-        'ko-KR', // Korece
-        'hi-IN', // Hintçe
-        'bn-BD', // Bengalce (Bangladeş)
-        'ur-PK', // Urduca (Pakistan)
-        'he-IL', // İbranice (İsrail)
-        'el-GR', // Yunanca (Yunanistan)
-        'nl-NL', // Hollandaca (Hollanda)
-        'pt-PT', // Portekizce (Portekiz)
-        'sv-SE', // İsveççe (İsveç)
-        'no-NO', // Norveççe (Norveç)
-        'da-DK', // Danca (Danimarka)
-        'fi-FI', // Fince (Finlandiya)
-        'pl-PL', // Lehçe (Polonya)
-        'cs-CZ', // Çekçe (Çek Cumhuriyeti)
-        'hu-HU', // Macarca (Macaristan)
-        'ro-RO', // Rumence (Romanya)
-        'bg-BG', // Bulgarca (Bulgaristan)
-        'sr-RS', // Sırpça (Sırbistan)
-        'hr-HR', // Hırvatça (Hırvatistan)
-        'sk-SK', // Slovakça (Slovakya)
-        'sl-SI', // Slovence (Slovenya)
-        'lt-LT', // Litvanca (Litvanya)
-        'lv-LV', // Letonca (Letonya)
-        'et-EE', // Estonca (Estonya)
-        'th-TH', // Tayca (Tayland)
-        'vi-VN', // Vietnamca (Vietnam)
-        'ms-MY', // Malayca (Malezya)
-        'id-ID', // Endonezce (Endonezya)
-        // Diğer diller buraya eklenebilir
-    ];
-}
 
 async function checkUnreadMessages(client) {
     const chats = await client.getChats();
@@ -540,10 +497,12 @@ async function transcribeAudio(audioBuffer) {
         return '';
     }
 
+    // Ses dosyasını audio/mpeg formatına dönüştür
+    const convertedBuffer = await convertToMp3(audioBuffer);
+
     const formData = new FormData();
-    formData.append("file", new Blob([audioBuffer], { type: 'audio/ogg' }));
+    formData.append("file", new Blob([convertedBuffer], { type: 'audio/mpeg' }));
     formData.append("model", "whisper-1");
-    formData.append("response_format", "text");
 
     try {
         const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
@@ -566,6 +525,29 @@ async function transcribeAudio(audioBuffer) {
         console.error('Sesli mesaj transkripsiyon hatası:', error);
         return '';
     }
+}
+
+function convertToMp3(audioBuffer) {
+    return new Promise((resolve, reject) => {
+        const inputStream = new Readable();
+        inputStream.push(audioBuffer);
+        inputStream.push(null);
+
+        const chunks = [];
+        const outputStream = new Readable({
+            read() {
+                this.push(Buffer.concat(chunks));
+                this.push(null);
+            }
+        });
+
+        ffmpeg(inputStream)
+            .toFormat('mp3')
+            .on('data', chunk => chunks.push(chunk))
+            .on('end', () => resolve(Buffer.concat(chunks)))
+            .on('error', reject)
+            .run();
+    });
 }
 
 async function calculateFileHash(filePath) {
