@@ -11,7 +11,7 @@ const WebSocket = require('ws');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
-
+const crypto = require('crypto');
 const app = express();
 const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -401,7 +401,7 @@ async function getChatGPTResponse(msg) {
     const questionsData = JSON.parse(fs.readFileSync(questionsFilePath, 'utf8'));
 
     // Gelen mesajın dilini tespit et
-    const detectedLanguage = await detectLanguage(msg.body);
+    const detectedLanguage = await detectLanguageWithChatGPT(msg.body, apiKey);
 
     // Gelen sorunun embedding'ini oluştur
     const userQuestionEmbedding = await getEmbedding(msg.body, apiKey);
@@ -423,7 +423,9 @@ async function getChatGPTResponse(msg) {
     // Eğer benzerlik skoru eşik değerin üzerinde ise JSON'daki cevabı döndür
     if (highestSimilarity >= 0.8) {
         console.log(`En benzer soru bulundu: ${bestMatch.question} (${highestSimilarity})`);
-        return bestMatch.answer;
+        // Cevabı tespit edilen dile çevir
+        const translatedAnswer = await translateTextWithChatGPT(bestMatch.answer, detectedLanguage, apiKey);
+        return translatedAnswer;
     }
 
     // Eğer eşleşme bulunmazsa ChatGPT API çağrısı yap
@@ -480,6 +482,74 @@ async function getChatGPTResponse(msg) {
     }
 }
 
+async function detectLanguageWithChatGPT(text, apiKey) {
+    const apiUrl = 'https://api.openai.com/v1/chat/completions';
+    const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+    };
+
+    const data = {
+        model: "gpt-4o-2024-11-20",
+        messages: [
+            {
+                role: "system",
+                content: "You are a language detection model. Identify the language of the following text."
+            },
+            {
+                role: "user",
+                content: text
+            }
+        ],
+        max_tokens: 10,
+        temperature: 0
+    };
+
+    try {
+        const response = await axios.post(apiUrl, data, { headers });
+        const detectedLanguage = response.data.choices[0].message.content.trim();
+        console.log(`Tespit edilen dil: ${detectedLanguage}`);
+        return detectedLanguage;
+    } catch (error) {
+        console.error('Dil tespiti hatası:', error);
+        return 'tr'; // Varsayılan dil Türkçe
+    }
+}
+
+async function translateTextWithChatGPT(text, targetLanguage, apiKey) {
+    const apiUrl = 'https://api.openai.com/v1/chat/completions';
+    const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+    };
+
+    const data = {
+        model: "gpt-4o-2024-11-20",
+        messages: [
+            {
+                role: "system",
+                content: `Translate the following text to ${targetLanguage}.`
+            },
+            {
+                role: "user",
+                content: text
+            }
+        ],
+        max_tokens: 1600,
+        temperature: 0.7
+    };
+
+    try {
+        const response = await axios.post(apiUrl, data, { headers });
+        const translatedText = response.data.choices[0].message.content.trim();
+        console.log(`Çevrilen metin: ${translatedText}`);
+        return translatedText;
+    } catch (error) {
+        console.error('Çeviri hatası:', error);
+        return text; // Çeviri başarısız olursa orijinal metni döndür
+    }
+}
+
 async function calculateFileHash(filePath) {
     return new Promise((resolve, reject) => {
         const hash = crypto.createHash('md5');
@@ -515,16 +585,6 @@ function cosineSimilarity(vec1, vec2) {
     const magnitude1 = Math.sqrt(vec1.reduce((sum, val) => sum + val * val, 0));
     const magnitude2 = Math.sqrt(vec2.reduce((sum, val) => sum + val * val, 0));
     return dotProduct / (magnitude1 * magnitude2);
-}
-
-async function detectLanguage(text) {
-    try {
-        const response = await translate(text);
-        return response.from.language.iso;
-    } catch (error) {
-        console.error('Dil tespiti hatası:', error);
-        return 'tr'; // Varsayılan dil Türkçe
-    }
 }
 
 const PORT = process.env.PORT || 3000;
