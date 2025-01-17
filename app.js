@@ -12,6 +12,8 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const speech = require('@google-cloud/speech');
+
 const app = express();
 const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -326,7 +328,51 @@ function broadcast(data) {
 async function checkIfReplied(msg) {
     return msg.hasQuotedMsg;
 }
-
+function getSupportedLanguages() {
+    return [
+        'en-US', // İngilizce (ABD)
+        'es-ES', // İspanyolca (İspanya)
+        'fr-FR', // Fransızca (Fransa)
+        'de-DE', // Almanca (Almanya)
+        'it-IT', // İtalyanca (İtalya)
+        'tr-TR', // Türkçe
+        'ru-RU', // Rusça
+        'uk-UA', // Ukraynaca
+        'ar-SA', // Arapça (Suudi Arabistan)
+        'fa-IR', // Farsça (İran)
+        'zh-CN', // Çince (Mandarin)
+        'ja-JP', // Japonca
+        'ko-KR', // Korece
+        'hi-IN', // Hintçe
+        'bn-BD', // Bengalce (Bangladeş)
+        'ur-PK', // Urduca (Pakistan)
+        'he-IL', // İbranice (İsrail)
+        'el-GR', // Yunanca (Yunanistan)
+        'nl-NL', // Hollandaca (Hollanda)
+        'pt-PT', // Portekizce (Portekiz)
+        'sv-SE', // İsveççe (İsveç)
+        'no-NO', // Norveççe (Norveç)
+        'da-DK', // Danca (Danimarka)
+        'fi-FI', // Fince (Finlandiya)
+        'pl-PL', // Lehçe (Polonya)
+        'cs-CZ', // Çekçe (Çek Cumhuriyeti)
+        'hu-HU', // Macarca (Macaristan)
+        'ro-RO', // Rumence (Romanya)
+        'bg-BG', // Bulgarca (Bulgaristan)
+        'sr-RS', // Sırpça (Sırbistan)
+        'hr-HR', // Hırvatça (Hırvatistan)
+        'sk-SK', // Slovakça (Slovakya)
+        'sl-SI', // Slovence (Slovenya)
+        'lt-LT', // Litvanca (Litvanya)
+        'lv-LV', // Letonca (Letonya)
+        'et-EE', // Estonca (Estonya)
+        'th-TH', // Tayca (Tayland)
+        'vi-VN', // Vietnamca (Vietnam)
+        'ms-MY', // Malayca (Malezya)
+        'id-ID', // Endonezce (Endonezya)
+        // Diğer diller buraya eklenebilir
+    ];
+}
 
 async function checkUnreadMessages(client) {
     const chats = await client.getChats();
@@ -400,11 +446,17 @@ async function getChatGPTResponse(msg) {
     // JSON dosyasını yükle
     const questionsData = JSON.parse(fs.readFileSync(questionsFilePath, 'utf8'));
 
-    // Gelen mesajın dilini tespit et
-    const detectedLanguage = await detectLanguageWithChatGPT(msg.body, apiKey);
+    let text = msg.body;
+
+    // Eğer mesaj sesli mesaj ise, metne dönüştür
+    if (msg.hasMedia && msg.type === 'ptt') {
+        const media = await msg.downloadMedia();
+        const audioBuffer = Buffer.from(media.data, 'base64');
+        text = await transcribeAudio(audioBuffer);
+    }
 
     // Gelen sorunun embedding'ini oluştur
-    const userQuestionEmbedding = await getEmbedding(msg.body, apiKey);
+    const userQuestionEmbedding = await getEmbedding(text, apiKey);
 
     // JSON'daki soruların embedding'lerini oluştur ve en benzerini bul
     let bestMatch = null;
@@ -423,9 +475,7 @@ async function getChatGPTResponse(msg) {
     // Eğer benzerlik skoru eşik değerin üzerinde ise JSON'daki cevabı döndür
     if (highestSimilarity >= 0.8) {
         console.log(`En benzer soru bulundu: ${bestMatch.question} (${highestSimilarity})`);
-        // Cevabı tespit edilen dile çevir
-        const translatedAnswer = await translateTextWithChatGPT(bestMatch.answer, detectedLanguage, apiKey);
-        return translatedAnswer;
+        return bestMatch.answer;
     }
 
     // Eğer eşleşme bulunmazsa ChatGPT API çağrısı yap
@@ -437,7 +487,7 @@ async function getChatGPTResponse(msg) {
 
     const promptText = "Sana gelen mesaj da eğer resim varsa resimi analiz et ve mesajın metnini oku doğru bir cevap yaz eğer cevabından emin değilsen bu metini gelen mesajın dilin de yaz\n\n1. Sizin için satış temsilcimiz en kısa sürede bilgi verecek";
     const data = {
-        model: "gpt-4o-2024-11-20",
+        model: "gpt-4o-2024-05-13",
         messages: [
             {
                 role: "user",
@@ -445,7 +495,7 @@ async function getChatGPTResponse(msg) {
             },
             {
                 role: "user",
-                content: msg.body
+                content: text
             }
         ],
         max_tokens: 1600,
@@ -482,71 +532,46 @@ async function getChatGPTResponse(msg) {
     }
 }
 
-async function detectLanguageWithChatGPT(text, apiKey) {
-    const apiUrl = 'https://api.openai.com/v1/chat/completions';
-    const headers = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+async function transcribeAudio(audioBuffer) {
+    const client = new speech.SpeechClient();
+    const audio = {
+        content: audioBuffer.toString('base64'),
     };
-
-    const data = {
-        model: "gpt-4o-2024-11-20",
-        messages: [
-            {
-                role: "system",
-                content: "You are a language detection model. Identify the language of the following text."
-            },
-            {
-                role: "user",
-                content: text
-            }
-        ],
-        max_tokens: 10,
-        temperature: 0
+    const config = {
+        encoding: 'OGG_OPUS',
+        sampleRateHertz: 16000,
+        languageCode: 'tr-TR', // Varsayılan dil Türkçe
+    };
+    const request = {
+        audio: audio,
+        config: config,
     };
 
     try {
-        const response = await axios.post(apiUrl, data, { headers });
-        const detectedLanguage = response.data.choices[0].message.content.trim();
-        console.log(`Tespit edilen dil: ${detectedLanguage}`);
-        return detectedLanguage;
-    } catch (error) {
-        console.error('Dil tespiti hatası:', error);
-        return 'tr'; // Varsayılan dil Türkçe
-    }
-}
-
-async function translateTextWithChatGPT(text, targetLanguage, apiKey) {
-    const apiUrl = 'https://api.openai.com/v1/chat/completions';
-    const headers = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-    };
-
-    const data = {
-        model: "gpt-4o-2024-11-20",
-        messages: [
-            {
-                role: "system",
-                content: `Translate the following text to ${targetLanguage}.`
+        // İlk olarak dil tespiti yap
+        const [operation] = await client.longRunningRecognize({
+            audio: audio,
+            config: {
+                ...config,
+                enableAutomaticPunctuation: true,
+                enableWordTimeOffsets: true,
+                diarizationConfig: {
+                    enableSpeakerDiarization: true,
+                    minSpeakerCount: 1,
+                    maxSpeakerCount: 6,
+                },
+                alternativeLanguageCodes: getSupportedLanguages(), // Desteklenen diller
             },
-            {
-                role: "user",
-                content: text
-            }
-        ],
-        max_tokens: 1600,
-        temperature: 0.7
-    };
-
-    try {
-        const response = await axios.post(apiUrl, data, { headers });
-        const translatedText = response.data.choices[0].message.content.trim();
-        console.log(`Çevrilen metin: ${translatedText}`);
-        return translatedText;
+        });
+        const [response] = await operation.promise();
+        const transcription = response.results
+            .map(result => result.alternatives[0].transcript)
+            .join('\n');
+        console.log(`Transcription: ${transcription}`);
+        return transcription;
     } catch (error) {
-        console.error('Çeviri hatası:', error);
-        return text; // Çeviri başarısız olursa orijinal metni döndür
+        console.error('Sesli mesaj transkripsiyon hatası:', error);
+        return '';
     }
 }
 
