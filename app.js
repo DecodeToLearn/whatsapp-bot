@@ -512,8 +512,10 @@ async function transcribeAudio(audioBuffer) {
     // Ses dosyasını audio/mpeg formatına dönüştür
     const convertedBuffer = await convertToMp3(audioBuffer);
     console.log('Converted buffer length:', convertedBuffer.length);
+
     const formData = new FormData();
-    formData.append("file", new Blob([convertedBuffer], { type: 'audio/mpeg' }));
+    const blob = new Blob([convertedBuffer], { type: 'audio/mpeg' });
+    formData.append("file", blob);
     formData.append("model", "whisper-1");
 
     try {
