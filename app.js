@@ -406,11 +406,22 @@ async function getChatGPTResponse(msg) {
     let text = msg.body;
 
     // Eğer mesaj sesli mesaj ise, metne dönüştür
-    if (msg.hasMedia && msg.type === 'ptt') {
-        const media = await msg.downloadMedia();
-        const audioBuffer = Buffer.from(media.data, 'base64');
-        text = await transcribeAudio(audioBuffer);
-        console.log(`Sesli mesaj metne dönüştürüldü: ${text}`);
+    console.log('Mesaj içeriği:', msg);
+
+    if (msg.hasMedia) {
+        console.log('Mesajda medya var.');
+        console.log('Mesaj türü:', msg.type);
+        if (msg.type === 'ptt') {
+            console.log('Mesaj türü: ptt (voice message).');
+            const media = await msg.downloadMedia();
+            const audioBuffer = Buffer.from(media.data, 'base64');
+            text = await transcribeAudio(audioBuffer);
+            console.log(`Sesli mesaj metne dönüştürüldü: ${text}`);
+        } else {
+            console.log(`Mesaj türü: ${msg.type}. Sesli mesaj değil.`);
+        }
+    } else {
+        console.log('Mesajda medya yok.');
     }
 
     // Gelen sorunun embedding'ini oluştur
