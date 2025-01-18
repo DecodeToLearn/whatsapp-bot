@@ -510,7 +510,7 @@ async function transcribeAudio(audioBuffer) {
 
     // Ses dosyasını audio/mpeg formatına dönüştür
     const convertedBuffer = await convertToMp3(audioBuffer);
-
+    console.log('Converted buffer length:', convertedBuffer.length);
     const formData = new FormData();
     formData.append("file", new Blob([convertedBuffer], { type: 'audio/mpeg' }));
     formData.append("model", "whisper-1");
@@ -545,18 +545,20 @@ function convertToMp3(audioBuffer) {
         inputStream.push(null);
 
         const chunks = [];
-        const outputStream = new Readable({
-            read() {
-                this.push(Buffer.concat(chunks));
-                this.push(null);
+        const outputStream = new Writable({
+            write(chunk, encoding, callback) {
+                chunks.push(chunk);
+                callback();
             }
         });
 
         ffmpeg(inputStream)
             .toFormat('mp3')
-            .on('data', chunk => chunks.push(chunk))
             .on('end', () => resolve(Buffer.concat(chunks)))
-            .on('error', reject)
+            .on('error', (err) => {
+                console.error('FFmpeg error:', err);
+                reject(err);
+            })
             .pipe(outputStream, { end: true });
     });
 }
