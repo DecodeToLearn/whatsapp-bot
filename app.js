@@ -557,7 +557,7 @@ function convertToMp3(audioBuffer) {
             .on('data', chunk => chunks.push(chunk))
             .on('end', () => resolve(Buffer.concat(chunks)))
             .on('error', reject)
-            .run();
+            .pipe(outputStream, { end: true });
     });
 }
 
