@@ -16,7 +16,7 @@ const crypto = require('crypto');
 const { Readable, Writable } = require('stream');
 const ffmpeg = require('fluent-ffmpeg');
 const FormData = require('form-data');
-
+const { Configuration, OpenAIApi } = require("openai");
 const app = express();
 const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -362,6 +362,12 @@ setInterval(async () => {
     }
 }, 5 * 60 * 1000); // 5 dakika
 
+// OpenAI API yapılandırması
+const configuration = new Configuration({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+  const openai = new OpenAIApi(configuration);
+
 async function getChatGPTResponse(msg) {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -502,69 +508,52 @@ async function getChatGPTResponse(msg) {
     }
 }
 
+// Ses dosyasını transkribe etme fonksiyonu
 async function transcribeAudio(audioBuffer) {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-        console.error('OpenAI API anahtarı tanımlanmamış.');
-        return '';
-    }
-
-    // Ses dosyasını audio/mpeg formatına dönüştür
-    const convertedBuffer = await convertToMp3(audioBuffer);
-    console.log('Converted buffer length:', convertedBuffer.length);
-
-    const formData = new FormData();
-    formData.append("file", convertedBuffer, { filename: 'audio.mp3', contentType: 'audio/mpeg' });
-    formData.append("model", "whisper-1");
+    const inputPath = 'input.ogg';
+    const outputPath = 'output.mp3';
+  
+    // Ses dosyasını geçici bir dosyaya yaz
+    fs.writeFileSync(inputPath, audioBuffer);
+  
     try {
-        const response = await fetch("https://api.openai.com/v1/audio/transcriptions",  {
-            headers: {
-                ...formData.getHeaders(),
-                Authorization: `Bearer ${apiKey}`,
-            },
-            method: "POST",
-            body: formData,
-        });
-
-        const data = await response.json();
-        console.log('Transcription response data:', data); // Debug log
-        if (data && data.text) {
-            console.log(`Transcription: ${data.text}`);
-            return data.text;
-        } else {
-            console.error('Transkripsiyon hatası:', data);
-            return '';
-        }
+      // OGG'yi MP3'e dönüştür
+      await convertOggToMp3(inputPath, outputPath);
+      console.log('Dönüştürme tamamlandı.');
+  
+      // Dönüştürülen MP3 dosyasını transkribe et
+      const transcription = await openai.createTranscription(
+        fs.createReadStream(outputPath),
+        "whisper-1"
+      );
+      console.log('Transkripsiyon:', transcription.data.text);
+  
+      // Geçici dosyaları sil
+      fs.unlinkSync(inputPath);
+      fs.unlinkSync(outputPath);
+  
+      return transcription.data.text;
     } catch (error) {
-        console.error('Sesli mesaj transkripsiyon hatası:', error);
-        return '';
+      console.error('Bir hata oluştu:', error);
+  
+      // Geçici dosyaları sil
+      fs.unlinkSync(inputPath);
+      fs.unlinkSync(outputPath);
+  
+      return '';
     }
-}
+  }
 
-function convertToMp3(audioBuffer) {
+// OGG'yi MP3'e dönüştürme fonksiyonu
+function convertOggToMp3(inputPath, outputPath) {
     return new Promise((resolve, reject) => {
-        const inputStream = new Readable();
-        inputStream.push(audioBuffer);
-        inputStream.push(null);
-
-        const chunks = [];
-        const outputStream = new Writable({
-            write(chunk, encoding, callback) {
-                chunks.push(chunk);
-                callback();
-            }
-        });
-
-        ffmpeg(inputStream)
-            .toFormat('mp3')
-            .on('end', () => resolve(Buffer.concat(chunks)))
-            .on('error', (err) => {
-                console.error('FFmpeg error:', err);
-                reject(err);
-            })
-            .pipe(outputStream, { end: true });
+      ffmpeg(inputPath)
+        .toFormat('mp3')
+        .on('end', () => resolve())
+        .on('error', (err) => reject(err))
+        .save(outputPath);
     });
-}
+  }
 
 async function calculateFileHash(filePath) {
     return new Promise((resolve, reject) => {
