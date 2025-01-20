@@ -635,7 +635,7 @@ function cosineSimilarity(vec1, vec2) {
 }
 
 async function handleImageWithCaption(imageUrl, caption, questionsData, apiKey) {
-    const userQuestionEmbedding = await getEmbedding(caption, apiKey);
+   /* const userQuestionEmbedding = await getEmbedding(caption, apiKey);
 
     // JSON'daki soruların embedding'lerini oluştur ve en benzerini bul
     let bestMatch = null;
@@ -658,7 +658,7 @@ async function handleImageWithCaption(imageUrl, caption, questionsData, apiKey) 
         console.log(`En benzer soru bulundu: ${bestMatch.question} (${highestSimilarity})`);
         return bestMatch.answer;
     }
-
+*/
     // Eğer eşleşme bulunmazsa ChatGPT API çağrısı yap
     const messages = [
         { role: 'system', content: 'Analyze the following images.' },
