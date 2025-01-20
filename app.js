@@ -425,7 +425,7 @@ async function getChatGPTResponse(msg) {
         } else if (msg.type === 'image') {
             console.log('Mesaj türü: image.');
             const media = await msg.downloadMedia();
-            const filePath = await saveMediaToFile(media, msg.id?._serialized, msg.timestamp);
+            const filePath = await saveImageToFile(media, msg.id?._serialized, msg.timestamp);
             if (!filePath) {
                 console.error('Resim dosyası kaydedilemedi.');
                 return null;
@@ -514,7 +514,40 @@ async function getChatGPTResponse(msg) {
         return null;
     }
 }
+const saveImageToFile = async (media, msgId, timestamp) => {
+    if (!media || !media.mimetype || !media.data) {
+        console.error('Geçersiz medya dosyası.');
+        return null;
+    }
 
+    const mediaDir = path.join(__dirname, 'media');
+
+    // 📁 Klasör yoksa oluştur
+    if (!fs.existsSync(mediaDir)) {
+        fs.mkdirSync(mediaDir);
+    }
+
+    // ✅ Dosya adı belirleme: timestamp + messageId
+    const extension = media.mimetype.split('/')[1] || 'unknown';
+    const fileName = `${timestamp}_${msgId}.${extension}`;
+    const filePath = path.join(mediaDir, fileName);
+
+    // ✅ Eğer dosya varsa, URL'yi döndür
+    if (fs.existsSync(filePath)) {
+        console.log('Medya dosyası zaten mevcut:', filePath);
+        return `https://whatsapp-bot-ie3t.onrender.com/media/${fileName}`;
+    }
+
+    // ✅ Dosya yoksa indir ve kaydet
+    try {
+        await fs.promises.writeFile(filePath, media.data, 'base64');
+        console.log('Medya dosyası kaydedildi:', filePath);
+        return `https://whatsapp-bot-ie3t.onrender.com/media/${fileName}`;
+    } catch (error) {
+        console.error('Medya dosyası kaydedilirken hata:', error);
+        return null;
+    }
+};
 // Ses dosyasını transkribe etme fonksiyonu
 async function transcribeAudio(audioBuffer) {
     const inputPath = 'input.ogg';
