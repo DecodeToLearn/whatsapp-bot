@@ -517,7 +517,7 @@ async function transcribeAudio(audioBuffer) {
     formData.append("file", convertedBuffer, { filename: 'audio.mp3', contentType: 'audio/mpeg' });
     formData.append("model", "whisper-1");
     try {
-        const response = await fetch("https://api.openai.com/v1/audio/transcriptions", formData,  {
+        const response = await fetch("https://api.openai.com/v1/audio/transcriptions",  {
             headers: {
                 ...formData.getHeaders(),
                 Authorization: `Bearer ${apiKey}`,
@@ -526,7 +526,7 @@ async function transcribeAudio(audioBuffer) {
             body: formData,
         });
 
-        const data = response.data;
+        const data = await response.json();
         console.log('Transcription response data:', data); // Debug log
         if (data && data.text) {
             console.log(`Transcription: ${data.text}`);
