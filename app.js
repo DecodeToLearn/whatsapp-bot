@@ -408,11 +408,11 @@ async function getChatGPTResponse(msg) {
     const questionsData = JSON.parse(fs.readFileSync(questionsFilePath, 'utf8'));
 
     let text = msg.body;
-
+    let imageUrl = null;
+    let caption = null;
     // Eğer mesaj sesli mesaj ise, metne dönüştür
     console.log('Mesaj içeriği:', msg);
 
- 
     if (msg.hasMedia) {
         console.log('Mesajda medya var.');
         console.log('Mesaj türü:', msg.type);
@@ -426,18 +426,26 @@ async function getChatGPTResponse(msg) {
             console.log('Mesaj türü: image.');
             const media = await msg.downloadMedia();
             const filePath = await saveImageToFile(media, msg.id?._serialized, msg.timestamp);
+            console.log(`Resim dosyası: ${filePath}`);
             if (!filePath) {
                 console.error('Resim dosyası kaydedilemedi.');
                 return null;
             }
-            text = msg.body;
+            imageUrl = filePath;
+            caption = msg.body;
         } else {
             console.log(`Mesaj türü: ${msg.type}. Sesli mesaj veya resim değil.`);
         }
     } else {
         console.log('Mesajda medya yok.');
     }
-
+     // Eğer resim URL'si varsa ve caption varsa, handleImageWithCaption fonksiyonunu çağır
+     if (imageUrl && caption) {
+        const reply = await handleImageWithCaption(imageUrl, caption, questionsData, apiKey);
+        if (reply) {
+            return reply;
+        }
+    }
     // Gelen sorunun embedding'ini oluştur
     const userQuestionEmbedding = await getEmbedding(text, apiKey);
 
@@ -470,7 +478,7 @@ async function getChatGPTResponse(msg) {
 
     const promptText = "Sana gelen mesaj da eğer resim varsa resimi analiz et ve mesajın metnini oku doğru bir cevap yaz eğer cevabından emin değilsen bu metini gelen mesajın dilin de yaz\n\n1. Sizin için satış temsilcimiz en kısa sürede bilgi verecek";
     const data = {
-        model: "gpt-4o-2024-05-13",
+        model: "gpt-4o-2024-08-06",
         messages: [
             {
                 role: "user",
@@ -484,25 +492,6 @@ async function getChatGPTResponse(msg) {
         max_tokens: 1600,
         temperature: 0.7
     };
-
-    /*if (msg.hasMedia) {
-        const media = await msg.downloadMedia();
-        if (media.mimetype.startsWith('image/')) {
-            const base64Image = `data:${media.mimetype};base64,${media.data}`;
-            data.messages.push({
-                role: "user",
-                content: {
-                    type: "image_url",
-                    image_url: base64Image,
-                    detail: "high"
-                }
-            });
-        } else if (media.mimetype.startsWith('video/')) {
-            console.log('Video mesajı ChatGPT API\'ye gönderilmeyecek.');
-            return null;
-        }
-    }*/
-
     try {
         console.log('ChatGPT API isteği gönderiliyor:', data);
         const response = await axios.post(apiUrl, data, { headers });
@@ -643,6 +632,71 @@ function cosineSimilarity(vec1, vec2) {
     const magnitude1 = Math.sqrt(vec1.reduce((sum, val) => sum + val * val, 0));
     const magnitude2 = Math.sqrt(vec2.reduce((sum, val) => sum + val * val, 0));
     return dotProduct / (magnitude1 * magnitude2);
+}
+
+async function handleImageWithCaption(imageUrl, caption, questionsData, apiKey) {
+    const userQuestionEmbedding = await getEmbedding(caption, apiKey);
+
+    // JSON'daki soruların embedding'lerini oluştur ve en benzerini bul
+    let bestMatch = null;
+    let highestSimilarity = 0;
+
+    const embeddingPromises = Object.entries(questionsData).map(async ([question, answer]) => {
+        const questionEmbedding = await getEmbedding(question, apiKey);
+        const similarity = cosineSimilarity(userQuestionEmbedding, questionEmbedding);
+
+        if (similarity > highestSimilarity) {
+            highestSimilarity = similarity;
+            bestMatch = { question, answer };
+        }
+    });
+
+    await Promise.all(embeddingPromises);
+
+    // Eğer benzerlik skoru eşik değerin üzerinde ise JSON'daki cevabı döndür
+    if (highestSimilarity >= 0.8) {
+        console.log(`En benzer soru bulundu: ${bestMatch.question} (${highestSimilarity})`);
+        return bestMatch.answer;
+    }
+
+    // Eğer eşleşme bulunmazsa ChatGPT API çağrısı yap
+    const messages = [
+        { role: 'system', content: 'Analyze the following images.' },
+        {
+            role: "user",
+            content: [
+                { type: "text", text: caption },
+                {
+                    type: "image_url",
+                    image_url: {
+                        "url": imageUrl, // URL'yi kullan
+                    },
+                },
+            ],
+        },
+    ];
+
+    const apiUrl = 'https://api.openai.com/v1/chat/completions';
+    const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+    };
+
+    const data = {
+        model: "gpt-4o-mini", // use model that can do vision
+        messages: messages,
+    };
+
+    try {
+        console.log('ChatGPT API isteği gönderiliyor:', data);
+        const response = await axios.post(apiUrl, data, { headers });
+        console.log('ChatGPT API yanıtı alındı:', response.data);
+        const reply = response.data.choices[0].message.content.trim();
+        return reply;
+    } catch (error) {
+        console.error('ChatGPT API hatası:', error);
+        return null;
+    }
 }
 
 const PORT = process.env.PORT || 3000;
