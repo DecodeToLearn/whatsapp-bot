@@ -527,7 +527,8 @@ async function transcribeAudio(audioBuffer) {
         });
 
         const data = response.data;
-        if (data.text) {
+        console.log('Transcription response data:', data); // Debug log
+        if (data && data.text) {
             console.log(`Transcription: ${data.text}`);
             return data.text;
         } else {
