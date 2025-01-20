@@ -425,12 +425,12 @@ async function getChatGPTResponse(msg) {
         } else if (msg.type === 'image') {
             console.log('Mesaj türü: image.');
             const media = await msg.downloadMedia();
-            const filePath = await saveMediaToFile(media, msg.id.id, msg.timestamp);
+            const filePath = await saveMediaToFile(media, msg.id?._serialized, msg.timestamp);
             if (!filePath) {
                 console.error('Resim dosyası kaydedilemedi.');
                 return null;
             }
-            text = msg.caption;
+            text = msg.body;
         } else {
             console.log(`Mesaj türü: ${msg.type}. Sesli mesaj veya resim değil.`);
         }
