@@ -16,7 +16,7 @@ const crypto = require('crypto');
 const { Readable, Writable } = require('stream');
 const ffmpeg = require('fluent-ffmpeg');
 const FormData = require('form-data');
-const { Configuration, OpenAIApi } = require("openai");
+
 const app = express();
 const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -32,10 +32,6 @@ const corsOptions = {
 let cachedHtmlTable = null;
 let cachedPdf = null;
 
-const configuration = new Configuration({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
-  const openai = new OpenAIApi(configuration);
 // Medya dosyalarını statik olarak sun
 app.use('/media', express.static(path.join(__dirname, 'media'), {
     maxAge: '1d', // Tarayıcı cache'te 7 gün saklar
@@ -513,7 +509,7 @@ async function getChatGPTResponse(msg) {
 async function transcribeAudio(audioBuffer) {
     const inputPath = 'input.ogg';
     const outputPath = 'output.mp3';
-  
+    const apiKey = process.env.OPENAI_API_KEY;
     // Ses dosyasını geçici bir dosyaya yaz
     fs.writeFileSync(inputPath, audioBuffer);
   
@@ -521,27 +517,40 @@ async function transcribeAudio(audioBuffer) {
       // OGG'yi MP3'e dönüştür
       await convertOggToMp3(inputPath, outputPath);
       console.log('Dönüştürme tamamlandı.');
-  
-      // Dönüştürülen MP3 dosyasını transkribe et
-      const transcription = await openai.createTranscription(
-        fs.createReadStream(outputPath),
-        "whisper-1"
-      );
-      console.log('Transkripsiyon:', transcription.data.text);
-  
-      // Geçici dosyaları sil
-      fs.unlinkSync(inputPath);
-      fs.unlinkSync(outputPath);
-  
-      return transcription.data.text;
+
+        // Dönüştürülen MP3 dosyasını transkribe et
+        const formData = new FormData();
+        formData.append('file', fs.createReadStream(outputPath));
+        formData.append('model', 'whisper-1');
+
+        const response = await axios.post('https://api.openai.com/v1/audio/transcriptions', formData, {
+            headers: {
+                ...formData.getHeaders(),
+                'Authorization': `Bearer ${apiKey}`
+            }
+        });
+
+        const data = response.data;
+        console.log('Transkripsiyon:', data.text);
+        return data.text;
     } catch (error) {
-      console.error('Bir hata oluştu:', error);
-  
-      // Geçici dosyaları sil
-      fs.unlinkSync(inputPath);
-      fs.unlinkSync(outputPath);
-  
-      return '';
+        console.error('Bir hata oluştu:', error);
+        // Hata durumunda da dosyaları silmeye çalışalım
+        try {
+            fs.unlinkSync(inputPath);
+            fs.unlinkSync(outputPath);
+        } catch (fileError) {
+            console.error('Dosya silme işlemi sırasında hata:', fileError);
+        }
+        return '';
+    } finally {
+        // Her koşulda dosyaları silme
+        try {
+            fs.unlinkSync(inputPath);
+            fs.unlinkSync(outputPath);
+        } catch (finalError) {
+            console.error('Dosya silme işlemi sırasında final hata:', finalError);
+        }
     }
   }
 
