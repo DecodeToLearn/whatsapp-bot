@@ -361,7 +361,7 @@ setInterval(async () => {
             await checkUnreadMessages(client);
         }
     }
-}, 5 * 60 * 1000); // 5 dakika
+}, 1 * 60 * 1000); // 5 dakika
 
 
 
@@ -412,6 +412,7 @@ async function getChatGPTResponse(msg) {
     // Eğer mesaj sesli mesaj ise, metne dönüştür
     console.log('Mesaj içeriği:', msg);
 
+ 
     if (msg.hasMedia) {
         console.log('Mesajda medya var.');
         console.log('Mesaj türü:', msg.type);
@@ -421,8 +422,17 @@ async function getChatGPTResponse(msg) {
             const audioBuffer = Buffer.from(media.data, 'base64');
             text = await transcribeAudio(audioBuffer);
             console.log(`Sesli mesaj metne dönüştürüldü: ${text}`);
+        } else if (msg.type === 'image') {
+            console.log('Mesaj türü: image.');
+            const media = await msg.downloadMedia();
+            const filePath = await saveMediaToFile(media, msg.id.id, msg.timestamp);
+            if (!filePath) {
+                console.error('Resim dosyası kaydedilemedi.');
+                return null;
+            }
+            text = msg.caption;
         } else {
-            console.log(`Mesaj türü: ${msg.type}. Sesli mesaj değil.`);
+            console.log(`Mesaj türü: ${msg.type}. Sesli mesaj veya resim değil.`);
         }
     } else {
         console.log('Mesajda medya yok.');
@@ -435,7 +445,7 @@ async function getChatGPTResponse(msg) {
     let bestMatch = null;
     let highestSimilarity = 0;
 
-    for (const [question, answer] of Object.entries(questionsData)) {
+    const embeddingPromises = Object.entries(questionsData).map(async ([question, answer]) => {
         const questionEmbedding = await getEmbedding(question, apiKey);
         const similarity = cosineSimilarity(userQuestionEmbedding, questionEmbedding);
 
@@ -443,8 +453,8 @@ async function getChatGPTResponse(msg) {
             highestSimilarity = similarity;
             bestMatch = { question, answer };
         }
-    }
-
+    });
+    await Promise.all(embeddingPromises);
     // Eğer benzerlik skoru eşik değerin üzerinde ise JSON'daki cevabı döndür
     if (highestSimilarity >= 0.8) {
         console.log(`En benzer soru bulundu: ${bestMatch.question} (${highestSimilarity})`);
@@ -475,7 +485,7 @@ async function getChatGPTResponse(msg) {
         temperature: 0.7
     };
 
-    if (msg.hasMedia) {
+    /*if (msg.hasMedia) {
         const media = await msg.downloadMedia();
         if (media.mimetype.startsWith('image/')) {
             const base64Image = `data:${media.mimetype};base64,${media.data}`;
@@ -491,7 +501,7 @@ async function getChatGPTResponse(msg) {
             console.log('Video mesajı ChatGPT API\'ye gönderilmeyecek.');
             return null;
         }
-    }
+    }*/
 
     try {
         console.log('ChatGPT API isteği gönderiliyor:', data);
