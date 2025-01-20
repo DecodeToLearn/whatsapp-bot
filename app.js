@@ -16,7 +16,7 @@ const crypto = require('crypto');
 const { Readable, Writable } = require('stream');
 const ffmpeg = require('fluent-ffmpeg');
 const FormData = require('form-data');
-const { Configuration, OpenAIApi } = require("openai");
+const { OpenAIApi } = require("openai");
 const app = express();
 const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -31,6 +31,11 @@ const corsOptions = {
 };
 let cachedHtmlTable = null;
 let cachedPdf = null;
+
+// OpenAI API yapılandırması
+const openai = new OpenAIApi({
+    apiKey: process.env.OPENAI_API_KEY,
+});
 // Medya dosyalarını statik olarak sun
 app.use('/media', express.static(path.join(__dirname, 'media'), {
     maxAge: '1d', // Tarayıcı cache'te 7 gün saklar
@@ -362,11 +367,7 @@ setInterval(async () => {
     }
 }, 5 * 60 * 1000); // 5 dakika
 
-// OpenAI API yapılandırması
-const configuration = new Configuration({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
-  const openai = new OpenAIApi(configuration);
+
 
 async function getChatGPTResponse(msg) {
     const apiKey = process.env.OPENAI_API_KEY;
