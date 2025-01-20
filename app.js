@@ -514,13 +514,12 @@ async function transcribeAudio(audioBuffer) {
     console.log('Converted buffer length:', convertedBuffer.length);
 
     const formData = new FormData();
-    const blob = new Blob([convertedBuffer], { type: 'audio/mpeg' });
-    formData.append("file", blob);
+    formData.append("file", convertedBuffer, { filename: 'audio.mp3', contentType: 'audio/mpeg' });
     formData.append("model", "whisper-1");
-
     try {
         const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
             headers: {
+                ...formData.getHeaders(),
                 Authorization: `Bearer ${apiKey}`,
             },
             method: "POST",
