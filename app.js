@@ -16,7 +16,7 @@ const crypto = require('crypto');
 const { Readable, Writable } = require('stream');
 const ffmpeg = require('fluent-ffmpeg');
 const FormData = require('form-data');
-const { OpenAIApi } = require("openai");
+const { Configuration, OpenAIApi } = require("openai");
 const app = express();
 const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -32,10 +32,10 @@ const corsOptions = {
 let cachedHtmlTable = null;
 let cachedPdf = null;
 
-// OpenAI API yapılandırması
-const openai = new OpenAIApi({
+const configuration = new Configuration({
     apiKey: process.env.OPENAI_API_KEY,
-});
+  });
+  const openai = new OpenAIApi(configuration);
 // Medya dosyalarını statik olarak sun
 app.use('/media', express.static(path.join(__dirname, 'media'), {
     maxAge: '1d', // Tarayıcı cache'te 7 gün saklar
