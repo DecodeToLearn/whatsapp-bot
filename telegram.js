@@ -52,6 +52,62 @@ module.exports = (app, wss) => {
         }
     });
 
+    app.post('/send-code', async (req, res) => {
+        const { userId, apiId, apiHash, phoneNumber } = req.body;
+
+        if (!userId || !apiId || !apiHash || !phoneNumber) {
+            return res.status(400).json({ error: 'All fields are required.' });
+        }
+
+        try {
+            const client = new TelegramClient(new StringSession(''), apiId, apiHash, { connectionRetries: 5 });
+
+            await client.start({
+                phoneNumber: () => phoneNumber,
+                phoneCode: async () => {
+                    // Doğrulama kodunu bekleyin
+                    return new Promise((resolve) => {
+                        clients[userId] = { client, resolve };
+                    });
+                },
+                onError: (err) => console.log(err),
+            });
+
+            res.json({ status: 'code_sent' });
+        } catch (error) {
+            console.error('Error sending code:', error);
+            res.status(500).json({ error: 'Failed to send code.' });
+        }
+    });
+
+    app.post('/verify-code', async (req, res) => {
+        const { userId, phoneCode, password } = req.body;
+
+        if (!userId || !phoneCode) {
+            return res.status(400).json({ error: 'User ID and phone code are required.' });
+        }
+
+        const clientData = clients[userId];
+        if (!clientData) {
+            return res.status(400).json({ error: 'User not found or code not sent.' });
+        }
+
+        try {
+            clientData.resolve(phoneCode);
+            if (password) {
+                await clientData.client.checkPassword(password);
+            }
+
+            fs.writeFileSync(path.join(SESSION_DIR, `${userId}.session`), clientData.client.session.save());
+            clients[userId] = clientData.client;
+
+            res.json({ status: 'connected' });
+        } catch (error) {
+            console.error('Error verifying code:', error);
+            res.status(500).json({ error: 'Failed to verify code.' });
+        }
+    });
+
     app.get('/contacts', async (req, res) => {
         const { userId } = req.query;
 
