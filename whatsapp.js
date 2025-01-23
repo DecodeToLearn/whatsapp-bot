@@ -6,9 +6,9 @@ const axios = require('axios');
 const crypto = require('crypto');
 const ffmpeg = require('fluent-ffmpeg');
 const FormData = require('form-data');
-
+const clients = {};
 module.exports = (app, wss) => {
-    const clients = {};
+
     const qrCodes = {};
     const SESSION_DIR = './sessions';
     let isInitialCheckDone = false;
@@ -80,6 +80,130 @@ module.exports = (app, wss) => {
                 }
             }
         });
+// Kontakları döndüren endpoint
+app.get('/contacts', async (req, res) => {
+    try {
+        const activeClient = Object.values(clients)[0];
+        if (!activeClient) {
+            return res.status(404).json({ error: 'Aktif bir WhatsApp oturumu yok.' });
+        }
+
+        const contacts = await activeClient.getContacts();
+        const formattedContacts = contacts.map(contact => ({
+            id: contact.id._serialized,
+            name: contact.name || contact.pushname || contact.id.user,
+        }));
+
+        res.status(200).json({ contacts: formattedContacts });
+    } catch (error) {
+        console.error('Kontaklar alınırken hata:', error);
+        res.status(500).json({ error: 'Kontaklar alınırken hata oluştu.' });
+    }
+});
+
+const saveMediaToFile = async (media, msgId, timestamp) => {
+    if (!media || !media.mimetype || !media.data) {
+        console.error('Geçersiz medya dosyası.');
+        return null;
+    }
+
+    const mediaDir = path.join(__dirname, 'media');
+
+    // 📁 Klasör yoksa oluştur
+    if (!fs.existsSync(mediaDir)) {
+        fs.mkdirSync(mediaDir);
+    }
+
+    // ✅ Dosya adı belirleme: timestamp + messageId
+    const extension = media.mimetype.split('/')[1] || 'unknown';
+    const fileName = `${timestamp}_${msgId}.${extension}`;
+    const filePath = path.join(mediaDir, fileName);
+
+    // ✅ Eğer dosya varsa, URL'yi döndür
+    if (fs.existsSync(filePath)) {
+        console.log('Medya dosyası zaten mevcut:', filePath);
+        return `https://whatsapp-bot-ie3t.onrender.com/media/${fileName}`;
+    }
+
+    // ✅ Dosya yoksa indir ve kaydet
+    try {
+        await fs.promises.writeFile(filePath, media.data, 'base64');
+        console.log('Medya dosyası kaydedildi:', filePath);
+        return `https://whatsapp-bot-ie3t.onrender.com/media/${fileName}`;
+    } catch (error) {
+        console.error('Medya dosyası kaydedilirken hata:', error);
+        return null;
+    }
+};
+
+
+
+const downloadedMedia = new Set();
+app.get('/messages/:chatId', async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 20;
+        const activeClient = Object.values(clients)[0];
+
+        if (!activeClient) {
+            return res.status(404).json({ error: 'Aktif bir WhatsApp oturumu yok.' });
+        }
+
+        const chat = await activeClient.getChatById(req.params.chatId);
+        const messages = await chat.fetchMessages({ limit });
+
+        const formattedMessages = await Promise.all(
+            messages.map(async (msg) => {
+                const formattedMsg = {
+                    from: msg.from,
+                    body: msg.body || '',
+                    media: null,
+                    timestamp: msg.timestamp,
+                };
+
+                // 📝 **Log mesaj ID ve medya durumu**
+                console.log(`Mesaj ID: ${msg.id?._serialized || 'ID Yok'}`);
+                console.log(`Medya Var mı: ${msg.hasMedia ? 'Evet' : 'Hayır'}`);
+
+                // ✅ Eğer mesajın medyası varsa işle
+                if (msg.hasMedia) {
+                    const media = await msg.downloadMedia();
+                    if (media) {
+                        const extension = media.mimetype?.split('/')[1] || 'unknown';
+                        const mediaFileName = `${msg.timestamp}_${msg.id?._serialized}.${extension}`;
+                        const mediaFilePath = path.join(__dirname, 'media', mediaFileName);
+
+                        // ✅ Medya dosyasını önceden kaydedildiyse URL döndür
+                        if (fs.existsSync(mediaFilePath)) {
+                            console.log('Medya dosyası zaten mevcut:', mediaFilePath);
+                            formattedMsg.media = {
+                                mimetype: media.mimetype,
+                                url: `https://whatsapp-bot-ie3t.onrender.com/media/${mediaFileName}`,
+                            };
+                        } else {
+                            // ✅ Dosya yoksa indir ve kaydet
+                            const savedMediaUrl = await saveMediaToFile(media, msg.id?._serialized, msg.timestamp);
+                            if (savedMediaUrl) {
+                                formattedMsg.media = {
+                                    mimetype: media.mimetype,
+                                    url: savedMediaUrl,
+                                };
+                            }
+                        }
+                    } else {
+                        console.warn('Medya indirme başarısız:', msg.id?._serialized || 'ID Yok');
+                    }
+                }
+
+                return formattedMsg;
+            })
+        );
+
+        res.status(200).json({ messages: formattedMessages });
+    } catch (error) {
+        console.error('Mesajlar alınırken hata:', error);
+        res.status(500).json({ error: 'Mesajlar alınırken hata oluştu.' });
+    }
+});
 
         client.on('disconnected', (reason) => {
             console.log(`${userId} bağlantısı kesildi: ${reason}`);
