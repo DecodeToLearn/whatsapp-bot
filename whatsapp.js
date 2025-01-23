@@ -516,3 +516,4 @@ module.exports = (app, wss) => {
         }
     }
 };
+module.exports.clients = clients;

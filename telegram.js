@@ -1,18 +1,17 @@
 const { TelegramClient } = require('telegram');
 const { StringSession } = require('telegram/sessions');
-const input = require('input'); // npm install input
 const fs = require('fs');
 const path = require('path');
 
+const clients = {};
 module.exports = (app, wss) => {
-    const clients = {};
     const SESSION_DIR = './telegram_sessions';
 
     if (!fs.existsSync(SESSION_DIR)) {
         fs.mkdirSync(SESSION_DIR);
     }
 
-    async function createClient(userId, apiId, apiHash, appTitle, shortName) {
+    async function createClient(userId, apiId, apiHash, phoneNumber, password, phoneCode) {
         const sessionPath = path.join(SESSION_DIR, `${userId}.session`);
         const stringSession = new StringSession(fs.existsSync(sessionPath) ? fs.readFileSync(sessionPath, 'utf8') : '');
 
@@ -21,9 +20,9 @@ module.exports = (app, wss) => {
         });
 
         await client.start({
-            phoneNumber: async () => await input.text('Please enter your number: '),
-            password: async () => await input.text('Please enter your password: '),
-            phoneCode: async () => await input.text('Please enter the code you received: '),
+            phoneNumber: () => phoneNumber,
+            password: () => password,
+            phoneCode: () => phoneCode,
             onError: (err) => console.log(err),
         });
 
@@ -91,3 +90,5 @@ module.exports = (app, wss) => {
         console.log('New WebSocket connection established.');
     });
 };
+
+module.exports.clients = clients;
