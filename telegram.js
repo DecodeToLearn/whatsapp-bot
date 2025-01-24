@@ -15,7 +15,7 @@ module.exports = (app, wss) => {
         const sessionPath = path.join(SESSION_DIR, `${userId}.session`);
         const stringSession = new StringSession(fs.existsSync(sessionPath) ? fs.readFileSync(sessionPath, 'utf8') : '');
 
-        const client = new TelegramClient(stringSession, apiId, apiHash, {
+        const client = new TelegramClient(stringSession, Number(apiId), apiHash, {
             connectionRetries: 5,
         });
 
@@ -32,26 +32,6 @@ module.exports = (app, wss) => {
         clients[userId] = client;
     }
 
-    app.post('/register', async (req, res) => {
-        const { userId, apiId, apiHash, appTitle, shortName } = req.body;
-
-        if (!userId || !apiId || !apiHash || !appTitle || !shortName) {
-            return res.status(400).json({ error: 'All fields are required.' });
-        }
-
-        if (clients[userId]) {
-            return res.json({ status: 'already_registered' });
-        }
-
-        try {
-            await createClient(userId, apiId, apiHash, appTitle, shortName);
-            res.json({ status: 'registered' });
-        } catch (error) {
-            console.error('Error creating Telegram client:', error);
-            res.status(500).json({ error: 'Failed to register user.' });
-        }
-    });
-
     app.post('/send-code', async (req, res) => {
         const { userId, apiId, apiHash, phoneNumber } = req.body;
 
@@ -60,7 +40,7 @@ module.exports = (app, wss) => {
         }
 
         try {
-            const client = new TelegramClient(new StringSession(''), apiId, apiHash, { connectionRetries: 5 });
+            const client = new TelegramClient(new StringSession(''), Number(apiId), apiHash, { connectionRetries: 5 });
 
             await client.start({
                 phoneNumber: () => phoneNumber,
@@ -94,10 +74,7 @@ module.exports = (app, wss) => {
 
         try {
             clientData.resolve(phoneCode);
-            if (password) {
-                await clientData.client.checkPassword(password);
-            }
-
+            // Password doğrulama işlemi olmadan devam ediyoruz
             fs.writeFileSync(path.join(SESSION_DIR, `${userId}.session`), clientData.client.session.save());
             clients[userId] = clientData.client;
 
