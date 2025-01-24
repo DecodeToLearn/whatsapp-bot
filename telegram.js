@@ -93,7 +93,13 @@ module.exports = (app, wss) => {
         }
 
         try {
-            const contacts = await clients[userId].getContacts();
+            const result = await clients[userId].invoke(new Api.contacts.GetContacts({
+                hash: 0
+            }));
+            const contacts = result.users.map(user => ({
+                id: user.id,
+                name: user.username || `${user.firstName} ${user.lastName}`
+            }));
             res.json({ contacts });
         } catch (error) {
             console.error('Error fetching contacts:', error);
