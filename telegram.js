@@ -117,8 +117,9 @@ module.exports = (app, wss) => {
         }
 
         try {
+            const peer = new Api.InputPeerUser({ userId: parseInt(chatId) });
             const result = await clients[userId].invoke(new Api.messages.GetHistory({
-                peer: new Api.InputPeerChat({ chatId: parseInt(chatId) }),
+                peer,
                 limit
             }));
             const messages = result.messages.map(message => ({
