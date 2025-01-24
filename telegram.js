@@ -98,7 +98,7 @@ module.exports = (app, wss) => {
             }));
             const contacts = result.users.map(user => ({
                 id: user.id,
-                name: user.username || `${user.firstName} ${user.lastName}`
+                name: user.username || [user.firstName, user.lastName].filter(Boolean).join(' ')
             }));
             res.json({ contacts });
         } catch (error) {
@@ -117,7 +117,19 @@ module.exports = (app, wss) => {
         }
 
         try {
-            const messages = await clients[userId].getMessages(chatId, { limit });
+            const result = await clients[userId].invoke(new Api.messages.GetHistory({
+                peer: new Api.InputPeerChat({ chatId: parseInt(chatId) }),
+                limit
+            }));
+            const messages = result.messages.map(message => ({
+                id: message.id,
+                from: message.fromId,
+                body: message.message,
+                media: message.media ? {
+                    url: message.media.document ? message.media.document.url : null,
+                    mimetype: message.media.document ? message.media.document.mimeType : null
+                } : null
+            }));
             res.json({ messages });
         } catch (error) {
             console.error('Error fetching messages:', error);
