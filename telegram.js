@@ -124,12 +124,16 @@ module.exports = (app, wss) => {
             }));
             const messages = result.messages.map(message => ({
                 id: message.id,
-                from: message.fromId,
-                body: message.message,
-                media: message.media ? {
-                    url: message.media.document ? message.media.document.url : null,
-                    mimetype: message.media.document ? message.media.document.mimeType : null
-                } : null
+                from: message.fromId
+                ? message.fromId.userId || message.fromId.channelId || message.fromId.chatId
+                : null,
+                body: message.message || '',
+                media: message.media && message.media.document
+                ? {
+                      url: message.media.document.url || null,
+                      mimetype: message.media.document.mimeType || null
+                  }
+                : null
             }));
             res.json({ messages });
         } catch (error) {
