@@ -133,18 +133,39 @@ module.exports = (app, wss) => {
                 const result = await clients[userId].invoke(new Api.messages.GetHistory({
                     peer,
                     limit,
-                    addOffset: offsetId
+                    addOffset: offsetId,
                 }));
     
-                // Gelen mesajları topla
-                const messages = result.messages.map(message => ({
-                    id: message.id,
-                    from: message.fromId ? message.fromId.userId || message.fromId.channelId || message.fromId.chatId : null,
-                    body: message.message || '',
-                    media: message.media && message.media.document ? {
-                        url: message.media.document.url || null,
-                        mimetype: message.media.document.mimeType || null
-                    } : null
+                const messages = await Promise.all(result.messages.map(async (message) => {
+                    const formattedMessage = {
+                        id: message.id,
+                        date: message.date,
+                        from: message.fromId ? message.fromId.userId : null,
+                        text: message.message || '',
+                        media: null,
+                    };
+    
+                    // Medya mesajlarını kontrol et ve işle
+                    if (message.media) {
+                        if (message.media.photo) {
+                            // Fotoğraf mesajı
+                            const photoPath = await clients[userId].downloadMedia(message.media, './media/');
+                            formattedMessage.media = {
+                                type: 'photo',
+                                url: photoPath,
+                            };
+                        } else if (message.media.document) {
+                            // Belge mesajı
+                            const documentPath = await clients[userId].downloadMedia(message.media, './media/');
+                            formattedMessage.media = {
+                                type: 'document',
+                                url: documentPath,
+                                mimeType: message.media.document.mimeType,
+                            };
+                        }
+                    }
+    
+                    return formattedMessage;
                 }));
     
                 allMessages.push(...messages);
@@ -162,6 +183,7 @@ module.exports = (app, wss) => {
             res.status(500).json({ error: 'Failed to fetch messages.' });
         }
     });
+    
     
 
     wss.on('connection', (ws) => {
