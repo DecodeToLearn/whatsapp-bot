@@ -93,26 +93,44 @@ module.exports = (app, wss) => {
         }
     
         try {
-            // Tüm kontakları alın
-            const result = await clients[userId].invoke(new Api.contacts.GetContacts({
-                hash: 0
-            }));
-    
-            // Tüm kullanıcı bilgilerini topla
-            const contacts = result.users.map(user => ({
+            // Kayıtlı kontakları getir
+            const contactsResult = await clients[userId].invoke(new Api.contacts.GetContacts({ hash: 0 }));
+            const contacts = contactsResult.users.map(user => ({
                 id: user.id,
-                isContact: user.contact, // Kayıtlı olup olmadığını kontrol eder
+                isContact: true, // Bu kullanıcılar kayıtlıdır
                 username: user.username || null,
                 phone: user.phone || null,
                 name: [user.firstName, user.lastName].filter(Boolean).join(' ')
             }));
     
-            res.json({ contacts });
+            // Son iletişimleri getir (kayıtlı olmayan kişiler dahil)
+            const dialogsResult = await clients[userId].invoke(new Api.messages.GetDialogs({ limit: 100 }));
+            const recentContacts = dialogsResult.users.map(user => ({
+                id: user.id,
+                isContact: user.contact || false, // Kayıtlı değilse false
+                username: user.username || null,
+                phone: user.phone || null,
+                name: [user.firstName, user.lastName].filter(Boolean).join(' ')
+            }));
+    
+            // Kayıtlı kontaklar ile son iletişimleri birleştir
+            const allContacts = [...contacts, ...recentContacts];
+    
+            // ID'ye göre filtreleme (duplicate kayıtları kaldırma)
+            const uniqueContacts = allContacts.reduce((acc, contact) => {
+                if (!acc.some(existing => existing.id === contact.id)) {
+                    acc.push(contact);
+                }
+                return acc;
+            }, []);
+    
+            res.json({ contacts: uniqueContacts });
         } catch (error) {
             console.error('Error fetching contacts:', error);
             res.status(500).json({ error: 'Failed to fetch contacts.' });
         }
     });
+    
     
     app.get('/messages/:chatId', async (req, res) => {
         const { userId } = req.query;
