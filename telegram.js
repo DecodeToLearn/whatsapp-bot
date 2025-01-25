@@ -87,56 +87,82 @@ module.exports = (app, wss) => {
 
     app.get('/contacts', async (req, res) => {
         const { userId } = req.query;
-
+    
         if (!clients[userId]) {
             return res.status(400).json({ error: 'User not registered.' });
         }
-
+    
         try {
+            // Tüm kontakları alın
             const result = await clients[userId].invoke(new Api.contacts.GetContacts({
                 hash: 0
             }));
+    
+            // Tüm kullanıcı bilgilerini topla
             const contacts = result.users.map(user => ({
                 id: user.id,
-                name: user.username || [user.firstName, user.lastName].filter(Boolean).join(' ')
+                isContact: user.contact, // Kayıtlı olup olmadığını kontrol eder
+                username: user.username || null,
+                phone: user.phone || null,
+                name: [user.firstName, user.lastName].filter(Boolean).join(' ')
             }));
+    
             res.json({ contacts });
         } catch (error) {
             console.error('Error fetching contacts:', error);
             res.status(500).json({ error: 'Failed to fetch contacts.' });
         }
     });
-
+    
     app.get('/messages/:chatId', async (req, res) => {
         const { userId } = req.query;
         const { chatId } = req.params;
-        const limit = parseInt(req.query.limit, 10) || 20;
-
+    
         if (!clients[userId]) {
             return res.status(400).json({ error: 'User not registered.' });
         }
-
+    
+        const allMessages = [];
+        let offsetId = 0;
+        const limit = 100; // Telegram API'nin desteklediği maksimum limit
+    
         try {
             const peer = new Api.InputPeerUser({ userId: parseInt(chatId) });
-            const result = await clients[userId].invoke(new Api.messages.GetHistory({
-                peer,
-                limit
-            }));
-            const messages = result.messages.map(message => ({
-                id: message.id,
-                from: message.fromId ? message.fromId.userId || message.fromId.channelId || message.fromId.chatId : null,
-                body: message.message || '',
-                media: message.media && message.media.document ? {
-                    url: message.media.document.url || null,
-                    mimetype: message.media.document.mimeType || null
-                } : null
-            }));
-            res.json({ messages });
+    
+            while (true) {
+                const result = await clients[userId].invoke(new Api.messages.GetHistory({
+                    peer,
+                    limit,
+                    addOffset: offsetId
+                }));
+    
+                // Gelen mesajları topla
+                const messages = result.messages.map(message => ({
+                    id: message.id,
+                    from: message.fromId ? message.fromId.userId || message.fromId.channelId || message.fromId.chatId : null,
+                    body: message.message || '',
+                    media: message.media && message.media.document ? {
+                        url: message.media.document.url || null,
+                        mimetype: message.media.document.mimeType || null
+                    } : null
+                }));
+    
+                allMessages.push(...messages);
+    
+                // Eğer mesajlar tükendiyse döngüden çık
+                if (result.messages.length < limit) break;
+    
+                // Offset'i güncelle
+                offsetId = result.messages[result.messages.length - 1].id;
+            }
+    
+            res.json({ messages: allMessages });
         } catch (error) {
             console.error('Error fetching messages:', error);
             res.status(500).json({ error: 'Failed to fetch messages.' });
         }
     });
+    
 
     wss.on('connection', (ws) => {
         console.log('New WebSocket connection established.');
