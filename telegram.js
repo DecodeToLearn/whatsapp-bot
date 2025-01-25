@@ -95,22 +95,22 @@ module.exports = (app, wss) => {
         try {
             // Kayıtlı kontakları getir
             const contactsResult = await clients[userId].invoke(new Api.contacts.GetContacts({ hash: 0 }));
-            const contacts = contactsResult.users.map(user => ({
+            const contacts = (contactsResult.users || []).map(user => ({
                 id: user.id,
                 isContact: true, // Bu kullanıcılar kayıtlıdır
                 username: user.username || null,
                 phone: user.phone || null,
-                name: [user.firstName, user.lastName].filter(Boolean).join(' ')
+                name: [user.firstName, user.lastName].filter(Boolean).join(' '),
             }));
     
             // Son iletişimleri getir (kayıtlı olmayan kişiler dahil)
             const dialogsResult = await clients[userId].invoke(new Api.messages.GetDialogs({ limit: 100 }));
-            const recentContacts = dialogsResult.users.map(user => ({
+            const recentContacts = (dialogsResult.users || []).map(user => ({
                 id: user.id,
                 isContact: user.contact || false, // Kayıtlı değilse false
                 username: user.username || null,
                 phone: user.phone || null,
-                name: [user.firstName, user.lastName].filter(Boolean).join(' ')
+                name: [user.firstName, user.lastName].filter(Boolean).join(' '),
             }));
     
             // Kayıtlı kontaklar ile son iletişimleri birleştir
@@ -126,7 +126,7 @@ module.exports = (app, wss) => {
     
             res.json({ contacts: uniqueContacts });
         } catch (error) {
-            console.error('Error fetching contacts:', error);
+            console.error('Error fetching contacts:', error.message || error);
             res.status(500).json({ error: 'Failed to fetch contacts.' });
         }
     });
