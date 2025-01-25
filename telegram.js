@@ -117,23 +117,19 @@ module.exports = (app, wss) => {
         }
 
         try {
-            const peer = new Api.InputPeerChat({ chatId: parseInt(chatId) });
+            const peer = new Api.InputPeerUser({ userId: parseInt(chatId) });
             const result = await clients[userId].invoke(new Api.messages.GetHistory({
                 peer,
                 limit
             }));
             const messages = result.messages.map(message => ({
                 id: message.id,
-                from: message.fromId
-                ? message.fromId.userId || message.fromId.channelId || message.fromId.chatId
-                : null,
+                from: message.fromId ? message.fromId.userId || message.fromId.channelId || message.fromId.chatId : null,
                 body: message.message || '',
-                media: message.media && message.media.document
-                ? {
-                      url: message.media.document.url || null,
-                      mimetype: message.media.document.mimeType || null
-                  }
-                : null
+                media: message.media && message.media.document ? {
+                    url: message.media.document.url || null,
+                    mimetype: message.media.document.mimeType || null
+                } : null
             }));
             res.json({ messages });
         } catch (error) {
