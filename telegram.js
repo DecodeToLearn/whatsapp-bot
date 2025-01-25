@@ -87,14 +87,17 @@ module.exports = (app, wss) => {
 
     app.get('/contacts', async (req, res) => {
         const { userId } = req.query;
-    
+
         if (!clients[userId]) {
             return res.status(400).json({ error: 'User not registered.' });
         }
-    
+
         try {
             // Kayıtlı kontakları getir
             const contactsResult = await clients[userId].invoke(new Api.contacts.GetContacts({ hash: 0 }));
+            if (!contactsResult || !contactsResult.users) {
+                throw new Error('Failed to fetch contacts: contactsResult is undefined');
+            }
             const contacts = (contactsResult.users || []).map(user => ({
                 id: user.id,
                 isContact: true, // Bu kullanıcılar kayıtlıdır
@@ -102,9 +105,12 @@ module.exports = (app, wss) => {
                 phone: user.phone || null,
                 name: [user.firstName, user.lastName].filter(Boolean).join(' '),
             }));
-    
+
             // Son iletişimleri getir (kayıtlı olmayan kişiler dahil)
             const dialogsResult = await clients[userId].invoke(new Api.messages.GetDialogs({ limit: 100 }));
+            if (!dialogsResult || !dialogsResult.users) {
+                throw new Error('Failed to fetch dialogs: dialogsResult is undefined');
+            }
             const recentContacts = (dialogsResult.users || []).map(user => ({
                 id: user.id,
                 isContact: user.contact || false, // Kayıtlı değilse false
@@ -112,10 +118,10 @@ module.exports = (app, wss) => {
                 phone: user.phone || null,
                 name: [user.firstName, user.lastName].filter(Boolean).join(' '),
             }));
-    
+
             // Kayıtlı kontaklar ile son iletişimleri birleştir
             const allContacts = [...contacts, ...recentContacts];
-    
+
             // ID'ye göre filtreleme (duplicate kayıtları kaldırma)
             const uniqueContacts = allContacts.reduce((acc, contact) => {
                 if (!acc.some(existing => existing.id === contact.id)) {
@@ -123,7 +129,7 @@ module.exports = (app, wss) => {
                 }
                 return acc;
             }, []);
-    
+
             res.json({ contacts: uniqueContacts });
         } catch (error) {
             console.error('Error fetching contacts:', error.message || error);
