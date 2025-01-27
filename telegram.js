@@ -111,26 +111,40 @@ module.exports = (app, wss) => {
                   seenUserIds.add(entity.id);
               }
           }
-  
+          const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
           // Kullanıcıları rehbere ekle
           for (const user of allUsers) {
-              if (!user.contact) {
-                  try {
-                      await client.invoke(
-                          new Api.contacts.AddContact({
-                              id: user.id,
-                              firstName: user.firstName || 'Bilinmeyen',
-                              lastName: user.lastName || '',
-                              phone: user.phone || '',
-                              addPhonePrivacyException: false,
-                          })
-                      );
-                      console.log(`${user.username || user.firstName} rehbere eklendi.`);
+            if (!user.contact) {
+                // firstName ve lastName kontrolü
+                if (!user.firstName || user.firstName.trim() === '') {
+                    console.log(`Kullanıcı ${user.id} eksik isim bilgisine sahip, atlanıyor.`);
+                    continue;
+                }
+        
+                try {
+                    await client.invoke(
+                        new Api.contacts.AddContact({
+                            id: user.id,
+                            firstName: user.firstName,
+                            lastName: user.lastName || '',
+                            phone: user.phone || '',
+                            addPhonePrivacyException: false,
+                        })
+                    );
+                    console.log(`${user.username || user.firstName} rehbere eklendi.`);
+                    await delay(1000);
                   } catch (error) {
-                      console.error(`${user.username || user.firstName} eklenirken hata oluştu:`, error);
-                  }
-              }
-          }
+                    if (error.code === 420) {
+                        // FloodWaitError durumunda belirtilen süre kadar bekleyin
+                        const waitTime = (error.seconds + 1) * 1000;
+                        console.log(`Flood limitine ulaşıldı. ${waitTime / 1000} saniye bekleniyor...`);
+                        await delay(waitTime);
+                    } else {
+                        console.error(`${user.username || user.firstName} eklenirken hata oluştu:`, error);
+                    }
+                }
+            }
+        }
   
           // Rehberdeki tüm kişileri al
           const contactsResult = await client.invoke(new Api.contacts.GetContacts({ hash: BigInt(0) }));
