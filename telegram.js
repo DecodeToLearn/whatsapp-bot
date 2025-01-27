@@ -84,6 +84,8 @@ module.exports = (app, wss) => {
             res.status(500).json({ error: 'Failed to verify code.' });
         }
     });
+
+    
     app.get('/contacts', async (req, res) => {
       const { userId } = req.query;
   
@@ -94,73 +96,62 @@ module.exports = (app, wss) => {
       try {
           const client = clients[userId];
   
-          // Kayıtlı kontakları al
-          const contactsResult = await client.invoke(
-              new Api.contacts.GetContacts({ hash: BigInt(0) })
-          );
+          // Tüm diyalogları al
+          const dialogs = await client.getDialogs({ limit: 100 });
   
-          const contacts = (contactsResult?.users || []).filter(user => user).map(user => ({
-              id: user.id?.toString() || 'UNKNOWN',
+          const allUsers = [];
+          const seenUserIds = new Set();
+  
+          for (const dialog of dialogs) {
+              const entity = dialog.entity;
+  
+              // Sadece kullanıcıları işleyin (grupları veya kanalları değil)
+              if (entity.className === 'User' && !seenUserIds.has(entity.id)) {
+                  allUsers.push(entity);
+                  seenUserIds.add(entity.id);
+              }
+          }
+  
+          // Kullanıcıları rehbere ekle
+          for (const user of allUsers) {
+              if (!user.contact) {
+                  try {
+                      await client.invoke(
+                          new Api.contacts.AddContact({
+                              id: user.id,
+                              firstName: user.firstName || 'Bilinmeyen',
+                              lastName: user.lastName || '',
+                              phone: user.phone || '',
+                              addPhonePrivacyException: false,
+                          })
+                      );
+                      console.log(`${user.username || user.firstName} rehbere eklendi.`);
+                  } catch (error) {
+                      console.error(`${user.username || user.firstName} eklenirken hata oluştu:`, error);
+                  }
+              }
+          }
+  
+          // Rehberdeki tüm kişileri al
+          const contactsResult = await client.invoke(new Api.contacts.GetContacts({ hash: BigInt(0) }));
+          const contacts = (contactsResult.users || []).map(user => ({
+              id: user.id.toString(),
               isContact: true,
               username: user.username || 'YOK',
               phone: user.phone || 'GİZLİ',
-              name: [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Bilinmeyen Kullanıcı',
+              name: [user.firstName, user.lastName].filter(Boolean).join(' '),
           }));
   
-          // Son diyalogları al (kayıtlı olmayan kişiler dahil)
-          const dialogsResult = await client.invoke(
-              new Api.messages.GetDialogs({
-                  limit: 100,
-                  excludePinned: true,
-                  folderId: 0,
-              })
-          );
-  
-          const recentUsers = [];
-          const seenUserIds = new Set();
-  
-          (dialogsResult?.dialogs || []).forEach(dialog => {
-              if (!dialog?.peer || !(dialog.peer instanceof Api.PeerUser)) return;
-  
-              const user = (dialogsResult?.users || []).find(u => 
-                  u?.id?.toString() === dialog.peer.userId?.toString()
-              );
-  
-              if (user && !seenUserIds.has(user.id)) {
-                  recentUsers.push(user);
-                  seenUserIds.add(user.id);
-              }
-          });
-  
-          const recentContacts = recentUsers.map(user => ({
-              id: user.id?.toString() || 'UNKNOWN',
-              isContact: user.contact || false,
-              username: user.username || 'YOK',
-              phone: user.phone || 'GİZLİ',
-              name: [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Bilinmeyen Kullanıcı',
-          }));
-  
-          // Kayıtlı ve kayıtsız kontakları birleştir ve tekilleştir
-          const allContacts = [...contacts, ...recentContacts];
-          const uniqueContacts = allContacts.filter(
-              (contact, index, self) =>
-                  index === self.findIndex(c => c.id === contact.id)
-          );
-  
-          res.json({ contacts: uniqueContacts });
+          res.json({ contacts });
       } catch (error) {
-          console.error('Error fetching contacts:', {
-              message: error.message,
-              stack: error.stack,
-              details: error,
-          });
-  
+          console.error('Error fetching contacts:', error);
           res.status(500).json({
               error: 'Failed to fetch contacts.',
               details: error.message || 'Unknown error',
           });
       }
   });
+  
   
   
     
