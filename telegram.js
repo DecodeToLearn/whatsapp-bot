@@ -123,7 +123,7 @@ module.exports = (app, wss) => {
           dialogsResult.dialogs.forEach(dialog => {
               const peer = dialog.peer;
   
-              if (peer instanceof Api.PeerUser && peer.userId) {
+              if (peer && peer.userId && peer instanceof Api.PeerUser) {
                   const user = dialogsResult.users.find(u => 
                       u.id.toString() === peer.userId.toString()
                   );
@@ -132,6 +132,8 @@ module.exports = (app, wss) => {
                       recentUsers.push(user);
                       seenUserIds.add(user.id);
                   }
+              } else {
+                  console.warn('Undefined or invalid peer for dialog:', dialog);
               }
           });
   
@@ -159,10 +161,7 @@ module.exports = (app, wss) => {
               details: error.message 
           });
       }
-  });
-  
-    
-    
+  });  
     
     app.get('/messages/:chatId', async (req, res) => {
         const { userId } = req.query;
