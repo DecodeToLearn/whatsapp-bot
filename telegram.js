@@ -86,94 +86,97 @@ module.exports = (app, wss) => {
     });
 
     app.get('/contacts', async (req, res) => {
-        const { userId } = req.query;
-      
-        // 1. Kullanıcı Kontrolü
-        if (!clients[userId]) {
+      const { userId } = req.query;
+
+      if (!clients[userId]) {
           return res.status(400).json({ error: 'Kullanıcı kayıtlı değil.' });
-        }
-      
-        try {
+      }
+
+      try {
           const client = clients[userId];
-      
+
           // 2. Oturum Açık mı Kontrolü (Telethon mantığı)
           if (!(await client.isUserAuthorized())) {
-            throw new Error('Kullanıcı oturumu geçersiz.');
+              throw new Error('Kullanıcı oturumu geçersiz.');
           }
-      
+
           // 3. Kayıtlı Kontakları Çek
           const contactsResult = await client.invoke(
-            new Api.contacts.GetContacts({ hash: BigInt(-4156887774564) }) // Telegram hash için BigInt bekler
+              new Api.contacts.GetContacts({ hash: BigInt(0) }) // Telegram hash için BigInt bekler
           );
+
           if (!contactsResult || !contactsResult.users) {
-            throw new Error('Failed to fetch contacts: contactsResult is undefined');
-        }
+              throw new Error('Failed to fetch contacts: contactsResult is undefined');
+          }
+
           // 4. Kontakları Formatla
           const contacts = (contactsResult.users || []).map(user => ({
-            id: user.id.toString(),
-            isContact: true,
-            username: user.username || "YOK",
-            phone: user.phone || "GİZLİ",
-            name: [user.firstName, user.lastName].filter(Boolean).join(' '),
+              id: user.id.toString(),
+              isContact: true,
+              username: user.username || "YOK",
+              phone: user.phone || "GİZLİ",
+              name: [user.firstName, user.lastName].filter(Boolean).join(' '),
           }));
-      
+
           // 5. Son Diyalogları Çek (Sadece Bireysel Sohbetler)
           const dialogsResult = await client.invoke(
-            new Api.messages.GetDialogs({
-              limit: 100,
-              excludePinned: true,
-              folderId: 0
-            })
+              new Api.messages.GetDialogs({
+                  limit: 100,
+                  excludePinned: true,
+                  folderId: 0
+              })
           );
+
           if (!dialogsResult || !dialogsResult.dialogs) {
-            throw new Error('Failed to fetch dialogs: dialogsResult is undefined');
-        }
+              throw new Error('Failed to fetch dialogs: dialogsResult is undefined');
+          }
+
           // 6. Diyaloglardan Kullanıcıları Çıkar
           const recentUsers = [];
           const seenUserIds = new Set();
-      
+
           dialogsResult.dialogs.forEach(dialog => {
-            const peer = dialog.dialog.peer;
-            
-            // Sadece bireysel kullanıcı diyaloglarını al
-            if (peer instanceof Api.PeerUser) {
-              const user = dialogsResult.users.find(u => 
-                u.id.toString() === peer.userId.toString()
-              );
-              
-              if (user && !seenUserIds.has(user.id)) {
-                recentUsers.push(user);
-                seenUserIds.add(user.id);
+              const peer = dialog.peer;
+
+              // Sadece bireysel kullanıcı diyaloglarını al
+              if (peer instanceof Api.PeerUser) {
+                  const user = dialogsResult.users.find(u =>
+                      u.id.toString() === peer.userId.toString()
+                  );
+
+                  if (user && !seenUserIds.has(user.id)) {
+                      recentUsers.push(user);
+                      seenUserIds.add(user.id);
+                  }
               }
-            }
           });
-      
+
           // 7. Son İletişimleri Formatla
           const recentContacts = recentUsers.map(user => ({
-            id: user.id.toString(),
-            isContact: user.contact || false,
-            username: user.username || "YOK",
-            phone: user.phone || "GİZLİ",
-            name: [user.firstName, user.lastName].filter(Boolean).join(' '),
+              id: user.id.toString(),
+              isContact: user.contact || false,
+              username: user.username || "YOK",
+              phone: user.phone || "GİZLİ",
+              name: [user.firstName, user.lastName].filter(Boolean).join(' '),
           }));
-      
+
           // 8. Tüm Listeyi Birleştir ve Tekilleştir
           const allContacts = [...contacts, ...recentContacts];
           const uniqueContacts = allContacts.filter(
-            (contact, index, self) =>
-              index === self.findIndex(c => c.id === contact.id)
+              (contact, index, self) =>
+                  index === self.findIndex(c => c.id === contact.id)
           );
-      
+
           res.json({ contacts: uniqueContacts });
-      
-        } catch (error) {
+
+      } catch (error) {
           console.error('Hata Detayı:', error);
-          res.status(500).json({ 
-            error: 'Kontaklar alınamadı.',
-            details: error.message 
+          res.status(500).json({
+              error: 'Kontaklar alınamadı.',
+              details: error.message
           });
-        }
-      });
+      }
+  });
     
     
     
