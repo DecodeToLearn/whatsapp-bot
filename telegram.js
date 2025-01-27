@@ -209,6 +209,14 @@ module.exports = (app, wss) => {
                             type: 'photo',
                             url: `data:image/jpeg;base64,${photoBuffer.toString('base64')}`,
                         };
+                    } else if (message.media.document && message.media.document.mimeType === 'video/mp4') {
+                        // Video mesajı
+                        const videoBuffer = await clients[userId].downloadMedia(message.media, { workers: 1 });
+                        formattedMessage.media = {
+                            type: 'video',
+                            url: `data:video/mp4;base64,${videoBuffer.toString('base64')}`,
+                            mimeType: message.media.document.mimeType,
+                        };
                     } else if (message.media.document) {
                         // Belge mesajı
                         const documentBuffer = await clients[userId].downloadMedia(message.media, { workers: 1 });
@@ -216,14 +224,6 @@ module.exports = (app, wss) => {
                             type: 'document',
                             url: `data:application/octet-stream;base64,${documentBuffer.toString('base64')}`,
                             mimeType: message.media.document.mimeType,
-                        };
-                    } else if (message.media.video) {
-                        // Video mesajı
-                        const videoBuffer = await clients[userId].downloadMedia(message.media, { workers: 1 });
-                        formattedMessage.media = {
-                            type: 'video',
-                            url: `data:video/mp4;base64,${videoBuffer.toString('base64')}`,
-                            mimeType: message.media.video.mimeType,
                         };
                     }
                 }
