@@ -103,9 +103,11 @@ module.exports = (app, wss) => {
       
           // 3. Kayıtlı Kontakları Çek
           const contactsResult = await client.invoke(
-            new Api.contacts.GetContacts({ hash: BigInt(0) }) // Telegram hash için BigInt bekler
+            new Api.contacts.GetContacts({ hash: BigInt(-4156887774564) }) // Telegram hash için BigInt bekler
           );
-      
+          if (!contactsResult || !contactsResult.users) {
+            throw new Error('Failed to fetch contacts: contactsResult is undefined');
+        }
           // 4. Kontakları Formatla
           const contacts = (contactsResult.users || []).map(user => ({
             id: user.id.toString(),
@@ -123,7 +125,9 @@ module.exports = (app, wss) => {
               folderId: 0
             })
           );
-      
+          if (!dialogsResult || !dialogsResult.dialogs) {
+            throw new Error('Failed to fetch dialogs: dialogsResult is undefined');
+        }
           // 6. Diyaloglardan Kullanıcıları Çıkar
           const recentUsers = [];
           const seenUserIds = new Set();
