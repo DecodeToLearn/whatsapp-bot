@@ -84,7 +84,6 @@ module.exports = (app, wss) => {
             res.status(500).json({ error: 'Failed to verify code.' });
         }
     });
-
     app.get('/contacts', async (req, res) => {
       const { userId } = req.query;
   
@@ -97,10 +96,10 @@ module.exports = (app, wss) => {
   
           // Kayıtlı kontakları al
           const contactsResult = await client.invoke(
-              new Api.contacts.GetContacts({ hash: BigInt(0) }) // Telegram hash için BigInt
+              new Api.contacts.GetContacts({ hash: BigInt(0) })
           );
   
-          const contacts = (contactsResult.users || []).filter(user => user).map(user => ({
+          const contacts = (contactsResult?.users || []).filter(user => user).map(user => ({
               id: user.id?.toString() || 'UNKNOWN',
               isContact: true,
               username: user.username || 'YOK',
@@ -120,10 +119,10 @@ module.exports = (app, wss) => {
           const recentUsers = [];
           const seenUserIds = new Set();
   
-          (dialogsResult.dialogs || []).forEach(dialog => {
-              if (!dialog.peer || !(dialog.peer instanceof Api.PeerUser)) return;
+          (dialogsResult?.dialogs || []).forEach(dialog => {
+              if (!dialog?.peer || !(dialog.peer instanceof Api.PeerUser)) return;
   
-              const user = (dialogsResult.users || []).find(u => 
+              const user = (dialogsResult?.users || []).find(u => 
                   u?.id?.toString() === dialog.peer.userId?.toString()
               );
   
@@ -150,10 +149,15 @@ module.exports = (app, wss) => {
   
           res.json({ contacts: uniqueContacts });
       } catch (error) {
-          console.error('Error fetching contacts:', error.message || error);
+          console.error('Error fetching contacts:', {
+              message: error.message,
+              stack: error.stack,
+              details: error,
+          });
+  
           res.status(500).json({
               error: 'Failed to fetch contacts.',
-              details: error.message || error,
+              details: error.message || 'Unknown error',
           });
       }
   });
