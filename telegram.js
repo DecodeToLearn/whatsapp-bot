@@ -95,25 +95,25 @@ module.exports = (app, wss) => {
       try {
           const client = clients[userId];
   
-          // Kayıtlı Kontakları Al
+          // Kayıtlı kontakları al
           const contactsResult = await client.invoke(
-              new Api.contacts.GetContacts({ hash: BigInt(0) }) // Telegram hash için BigInt bekler
+              new Api.contacts.GetContacts({ hash: BigInt(0) }) // Telegram hash için BigInt
           );
   
           const contacts = (contactsResult.users || []).map(user => ({
               id: user.id.toString(),
               isContact: true,
-              username: user.username || "YOK",
-              phone: user.phone || "GİZLİ",
+              username: user.username || 'YOK',
+              phone: user.phone || 'GİZLİ',
               name: [user.firstName, user.lastName].filter(Boolean).join(' '),
           }));
   
-          // Son Diyalogları Al (Kayıtlı Olmayan Kişiler Dahil)
+          // Son diyalogları al (kayıtlı olmayan kişiler dahil)
           const dialogsResult = await client.invoke(
               new Api.messages.GetDialogs({
                   limit: 100,
                   excludePinned: true,
-                  folderId: 0
+                  folderId: 0,
               })
           );
   
@@ -121,31 +121,29 @@ module.exports = (app, wss) => {
           const seenUserIds = new Set();
   
           dialogsResult.dialogs.forEach(dialog => {
-              const peer = dialog.peer;
+              if (!dialog.peer) return; // Eğer `peer` yoksa atla
   
-              if (peer && peer.userId && peer instanceof Api.PeerUser) {
+              if (dialog.peer instanceof Api.PeerUser) {
                   const user = dialogsResult.users.find(u => 
-                      u.id.toString() === peer.userId.toString()
+                      u.id.toString() === dialog.peer.userId.toString()
                   );
   
                   if (user && !seenUserIds.has(user.id)) {
                       recentUsers.push(user);
                       seenUserIds.add(user.id);
                   }
-              } else {
-                  console.warn('Undefined or invalid peer for dialog:', dialog);
               }
           });
   
           const recentContacts = recentUsers.map(user => ({
               id: user.id.toString(),
               isContact: user.contact || false,
-              username: user.username || "YOK",
-              phone: user.phone || "GİZLİ",
+              username: user.username || 'YOK',
+              phone: user.phone || 'GİZLİ',
               name: [user.firstName, user.lastName].filter(Boolean).join(' '),
           }));
   
-          // Kayıtlı ve Kayıtsız Kontakları Birleştir ve Tekilleştir
+          // Kayıtlı ve kayıtsız kontakları birleştir ve tekilleştir
           const allContacts = [...contacts, ...recentContacts];
           const uniqueContacts = allContacts.filter(
               (contact, index, self) =>
@@ -153,15 +151,15 @@ module.exports = (app, wss) => {
           );
   
           res.json({ contacts: uniqueContacts });
-  
       } catch (error) {
-          console.error('Error fetching contacts:', error);
-          res.status(500).json({ 
+          console.error('Error fetching contacts:', error.message || error);
+          res.status(500).json({
               error: 'Failed to fetch contacts.',
-              details: error.message 
+              details: error.message || error,
           });
       }
-  });  
+  });
+  
     
     app.get('/messages/:chatId', async (req, res) => {
         const { userId } = req.query;
