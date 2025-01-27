@@ -169,75 +169,75 @@ module.exports = (app, wss) => {
   
   
     
-    app.get('/messages/:chatId', async (req, res) => {
-        const { userId } = req.query;
-        const { chatId } = req.params;
-    
-        if (!clients[userId]) {
-            return res.status(400).json({ error: 'User not registered.' });
-        }
-    
-        const allMessages = [];
-        let offsetId = 0;
-        const limit = 100; // Telegram API'nin desteklediği maksimum limit
-    
-        try {
-            const peer = new Api.InputPeerUser({ userId: parseInt(chatId) });
-    
-            while (true) {
-                const result = await clients[userId].invoke(new Api.messages.GetHistory({
-                    peer,
-                    limit,
-                    addOffset: offsetId,
-                }));
-    
-                const messages = await Promise.all(result.messages.map(async (message) => {
-                    const formattedMessage = {
-                        id: message.id,
-                        date: message.date,
-                        from: message.fromId ? message.fromId.userId : null,
-                        text: message.message || '',
-                        media: null,
-                    };
-    
-                    // Medya mesajlarını kontrol et ve işle
-                    if (message.media) {
-                        if (message.media.photo) {
-                            // Fotoğraf mesajı
-                            const photoPath = await clients[userId].downloadMedia(message.media, './media/');
-                            formattedMessage.media = {
-                                type: 'photo',
-                                url: photoPath,
-                            };
-                        } else if (message.media.document) {
-                            // Belge mesajı
-                            const documentPath = await clients[userId].downloadMedia(message.media, './media/');
-                            formattedMessage.media = {
-                                type: 'document',
-                                url: documentPath,
-                                mimeType: message.media.document.mimeType,
-                            };
-                        }
+  app.get('/messages/:chatId', async (req, res) => {
+    const { userId } = req.query;
+    const { chatId } = req.params;
+
+    if (!clients[userId]) {
+        return res.status(400).json({ error: 'User not registered.' });
+    }
+
+    const allMessages = [];
+    let offsetId = 0;
+    const limit = 100; // Telegram API'nin desteklediği maksimum limit
+
+    try {
+        const peer = new Api.InputPeerUser({ userId: parseInt(chatId) });
+
+        while (true) {
+            const result = await clients[userId].invoke(new Api.messages.GetHistory({
+                peer,
+                limit,
+                addOffset: offsetId,
+            }));
+
+            const messages = await Promise.all(result.messages.map(async (message) => {
+                const formattedMessage = {
+                    id: message.id,
+                    date: message.date,
+                    from: message.fromId ? message.fromId.userId : null,
+                    text: message.message || '',
+                    media: null,
+                };
+
+                // Medya mesajlarını kontrol et ve işle
+                if (message.media) {
+                    if (message.media.photo) {
+                        // Fotoğraf mesajı
+                        const photoBuffer = await clients[userId].downloadMedia(message.media, { workers: 1 });
+                        formattedMessage.media = {
+                            type: 'photo',
+                            url: `data:image/jpeg;base64,${photoBuffer.toString('base64')}`,
+                        };
+                    } else if (message.media.document) {
+                        // Belge mesajı
+                        const documentBuffer = await clients[userId].downloadMedia(message.media, { workers: 1 });
+                        formattedMessage.media = {
+                            type: 'document',
+                            url: `data:application/octet-stream;base64,${documentBuffer.toString('base64')}`,
+                            mimeType: message.media.document.mimeType,
+                        };
                     }
-    
-                    return formattedMessage;
-                }));
-    
-                allMessages.push(...messages);
-    
-                // Eğer mesajlar tükendiyse döngüden çık
-                if (result.messages.length < limit) break;
-    
-                // Offset'i güncelle
-                offsetId = result.messages[result.messages.length - 1].id;
-            }
-    
-            res.json({ messages: allMessages });
-        } catch (error) {
-            console.error('Error fetching messages:', error);
-            res.status(500).json({ error: 'Failed to fetch messages.' });
+                }
+
+                return formattedMessage;
+            }));
+
+            allMessages.push(...messages);
+
+            // Eğer mesajlar tükendiyse döngüden çık
+            if (result.messages.length < limit) break;
+
+            // Offset'i güncelle
+            offsetId = result.messages[result.messages.length - 1].id;
         }
-    });
+
+        res.json({ messages: allMessages });
+    } catch (error) {
+        console.error('Error fetching messages:', error);
+        res.status(500).json({ error: 'Failed to fetch messages.' });
+    }
+});
     
     
 
