@@ -217,6 +217,14 @@ module.exports = (app, wss) => {
                             url: `data:application/octet-stream;base64,${documentBuffer.toString('base64')}`,
                             mimeType: message.media.document.mimeType,
                         };
+                    } else if (message.media.video) {
+                        // Video mesajı
+                        const videoBuffer = await clients[userId].downloadMedia(message.media, { workers: 1 });
+                        formattedMessage.media = {
+                            type: 'video',
+                            url: `data:video/mp4;base64,${videoBuffer.toString('base64')}`,
+                            mimeType: message.media.video.mimeType,
+                        };
                     }
                 }
 
