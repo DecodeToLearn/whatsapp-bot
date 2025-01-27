@@ -100,12 +100,12 @@ module.exports = (app, wss) => {
               new Api.contacts.GetContacts({ hash: BigInt(0) }) // Telegram hash için BigInt
           );
   
-          const contacts = (contactsResult.users || []).map(user => ({
-              id: user.id.toString(),
+          const contacts = (contactsResult.users || []).filter(user => user).map(user => ({
+              id: user.id?.toString() || 'UNKNOWN',
               isContact: true,
               username: user.username || 'YOK',
               phone: user.phone || 'GİZLİ',
-              name: [user.firstName, user.lastName].filter(Boolean).join(' '),
+              name: [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Bilinmeyen Kullanıcı',
           }));
   
           // Son diyalogları al (kayıtlı olmayan kişiler dahil)
@@ -120,27 +120,25 @@ module.exports = (app, wss) => {
           const recentUsers = [];
           const seenUserIds = new Set();
   
-          dialogsResult.dialogs.forEach(dialog => {
-              if (!dialog.peer) return; // Eğer `peer` yoksa atla
+          (dialogsResult.dialogs || []).forEach(dialog => {
+              if (!dialog.peer || !(dialog.peer instanceof Api.PeerUser)) return;
   
-              if (dialog.peer instanceof Api.PeerUser) {
-                  const user = dialogsResult.users.find(u => 
-                      u.id.toString() === dialog.peer.userId.toString()
-                  );
+              const user = (dialogsResult.users || []).find(u => 
+                  u?.id?.toString() === dialog.peer.userId?.toString()
+              );
   
-                  if (user && !seenUserIds.has(user.id)) {
-                      recentUsers.push(user);
-                      seenUserIds.add(user.id);
-                  }
+              if (user && !seenUserIds.has(user.id)) {
+                  recentUsers.push(user);
+                  seenUserIds.add(user.id);
               }
           });
   
           const recentContacts = recentUsers.map(user => ({
-              id: user.id.toString(),
+              id: user.id?.toString() || 'UNKNOWN',
               isContact: user.contact || false,
               username: user.username || 'YOK',
               phone: user.phone || 'GİZLİ',
-              name: [user.firstName, user.lastName].filter(Boolean).join(' '),
+              name: [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Bilinmeyen Kullanıcı',
           }));
   
           // Kayıtlı ve kayıtsız kontakları birleştir ve tekilleştir
@@ -159,6 +157,7 @@ module.exports = (app, wss) => {
           });
       }
   });
+  
   
     
     app.get('/messages/:chatId', async (req, res) => {
