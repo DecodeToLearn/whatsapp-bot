@@ -1,5 +1,7 @@
 const { TelegramClient, Api } = require('telegram');
 const { StringSession } = require('telegram/sessions');
+const { NewMessage } = require('telegram/events');
+const { NewMessageEvent } = require('telegram/events/NewMessage');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
@@ -37,11 +39,13 @@ module.exports = (app, wss) => {
 
         clients[userId] = client;
 
-        client.on('updateNewMessage', async (update) => {
-            const message = update.message;
+        client.addEventHandler(async (event) => {
+            const message = event.message;
             console.log('Yeni mesaj alındı:', message);
-            if (message.out || message.media) return;
-
+        
+            // Mesajın outgoing (giden) olup olmadığını kontrol edin
+            if (message.out) return;
+        
             const isReplied = await checkIfReplied(message);
             if (!isReplied) {
                 console.log('Mesaj daha önce yanıtlanmamış, ChatGPT yanıtı alınıyor...');
@@ -51,7 +55,7 @@ module.exports = (app, wss) => {
                     await client.sendMessage(message.peerId, { message: response });
                 }
             }
-        });
+        }, new NewMessage({}));
 
 
         checkUnreadMessages(client);
