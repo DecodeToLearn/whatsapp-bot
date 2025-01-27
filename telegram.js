@@ -39,16 +39,20 @@ module.exports = (app, wss) => {
 
         client.on('updateNewMessage', async (update) => {
             const message = update.message;
+            console.log('Yeni mesaj alındı:', message);
             if (message.out || message.media) return;
 
             const isReplied = await checkIfReplied(message);
             if (!isReplied) {
+                console.log('Mesaj daha önce yanıtlanmamış, ChatGPT yanıtı alınıyor...');
                 const response = await getChatGPTResponse(message);
                 if (response) {
+                    console.log('ChatGPT yanıtı alındı, mesaj gönderiliyor...');
                     await client.sendMessage(message.peerId, { message: response });
                 }
             }
         });
+
 
         checkUnreadMessages(client);
         isInitialCheckDone = true;
@@ -66,10 +70,13 @@ module.exports = (app, wss) => {
                 const unreadMessages = await client.getMessages(peer, { limit: dialog.unreadCount });
                 for (const message of unreadMessages) {
                     if (!message.read) {
+                        console.log('Okunmamış mesaj bulundu:', message);
                         const isReplied = await checkIfReplied(message);
                         if (!isReplied) {
+                            console.log('Mesaj daha önce yanıtlanmamış, ChatGPT yanıtı alınıyor...');
                             const response = await getChatGPTResponse(message);
                             if (response) {
+                                console.log('ChatGPT yanıtı alındı, mesaj gönderiliyor...');
                                 await client.sendMessage(peer, { message: response });
                             }
                         }
@@ -88,6 +95,7 @@ module.exports = (app, wss) => {
     }, 1 * 60 * 1000); // 1 dakika
 
     async function getChatGPTResponse(message) {
+        console.log('getChatGPTResponse fonksiyonu çağrıldı:', message);
         const apiKey = process.env.OPENAI_API_KEY;
         if (!apiKey) {
             console.error('OpenAI API anahtarı tanımlanmamış.');
@@ -216,6 +224,7 @@ module.exports = (app, wss) => {
             return null;
         }
     }
+
 
     async function saveImageToFile(mediaBuffer, msgId, timestamp) {
         if (!mediaBuffer) {
