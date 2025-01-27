@@ -88,25 +88,18 @@ module.exports = (app, wss) => {
     app.get('/contacts', async (req, res) => {
       const { userId } = req.query;
   
-      // 1. Kullanıcı Kontrolü
       if (!clients[userId]) {
-          return res.status(400).json({ error: 'Kullanıcı kayıtlı değil.' });
+          return res.status(400).json({ error: 'User not registered.' });
       }
   
       try {
           const client = clients[userId];
   
-          // 2. Oturum Açık mı Kontrolü (Telethon mantığı)
-          if (!(await client.isUserAuthorized())) {
-              throw new Error('Kullanıcı oturumu geçersiz.');
-          }
-  
-          // 3. Kayıtlı Kontakları Çek
+          // Kayıtlı Kontakları Al
           const contactsResult = await client.invoke(
               new Api.contacts.GetContacts({ hash: BigInt(0) }) // Telegram hash için BigInt bekler
           );
   
-          // 4. Kontakları Formatla
           const contacts = (contactsResult.users || []).map(user => ({
               id: user.id.toString(),
               isContact: true,
@@ -115,7 +108,7 @@ module.exports = (app, wss) => {
               name: [user.firstName, user.lastName].filter(Boolean).join(' '),
           }));
   
-          // 5. Son Diyalogları Çek (Sadece Bireysel Sohbetler)
+          // Son Diyalogları Al (Kayıtlı Olmayan Kişiler Dahil)
           const dialogsResult = await client.invoke(
               new Api.messages.GetDialogs({
                   limit: 100,
@@ -124,52 +117,46 @@ module.exports = (app, wss) => {
               })
           );
   
-          // 6. Diyaloglardan Kullanıcıları Çıkar
           const recentUsers = [];
           const seenUserIds = new Set();
   
           dialogsResult.dialogs.forEach(dialog => {
-            const peer = dialog.dialog.peer;
-            
-            // Sadece bireysel kullanıcı diyaloglarını al
-            if (peer instanceof Api.PeerUser) {
-              const user = dialogsResult.users.find(u => 
-                u.id.toString() === peer.userId.toString()
-              );
-              
-              // Kullanıcı tanımlıysa ekle
-              if (user && !seenUserIds.has(user.id)) {
-                recentUsers.push(user);
-                seenUserIds.add(user.id);
+              const peer = dialog.peer;
+  
+              if (peer instanceof Api.PeerUser && peer.userId) {
+                  const user = dialogsResult.users.find(u => 
+                      u.id.toString() === peer.userId.toString()
+                  );
+  
+                  if (user && !seenUserIds.has(user.id)) {
+                      recentUsers.push(user);
+                      seenUserIds.add(user.id);
+                  }
               }
-            } else {
-              console.warn('Undefined peer.userId for dialog:', dialog);
-            }
           });
   
-          // 7. Son İletişimleri Formatla
           const recentContacts = recentUsers.map(user => ({
-            id: user.id.toString(),
-            isContact: user.contact || false,
-            username: user.username || "YOK",
-            phone: user.phone || "GİZLİ",
-            name: [user.firstName, user.lastName].filter(Boolean).join(' '),
+              id: user.id.toString(),
+              isContact: user.contact || false,
+              username: user.username || "YOK",
+              phone: user.phone || "GİZLİ",
+              name: [user.firstName, user.lastName].filter(Boolean).join(' '),
           }));
   
-          // 8. Tüm Listeyi Birleştir ve Tekilleştir
+          // Kayıtlı ve Kayıtsız Kontakları Birleştir ve Tekilleştir
           const allContacts = [...contacts, ...recentContacts];
           const uniqueContacts = allContacts.filter(
-            (contact, index, self) =>
-              index === self.findIndex(c => c.id === contact.id)
+              (contact, index, self) =>
+                  index === self.findIndex(c => c.id === contact.id)
           );
   
           res.json({ contacts: uniqueContacts });
   
       } catch (error) {
-          console.error('Hata Detayı:', error);
+          console.error('Error fetching contacts:', error);
           res.status(500).json({ 
-            error: 'Kontaklar alınamadı.',
-            details: error.message 
+              error: 'Failed to fetch contacts.',
+              details: error.message 
           });
       }
   });
