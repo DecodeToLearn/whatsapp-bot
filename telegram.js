@@ -19,7 +19,7 @@ module.exports = (app, wss) => {
         fs.mkdirSync(SESSION_DIR);
     }
 
-   /* async function createClient(userId, apiId, apiHash, phoneNumber, password, phoneCode) {
+    async function createClient(userId, apiId, apiHash, phoneNumber, password, phoneCode) {
         const sessionPath = path.join(SESSION_DIR, `${userId}.session`);
         const stringSession = new StringSession(fs.existsSync(sessionPath) ? fs.readFileSync(sessionPath, 'utf8') : '');
 
@@ -39,13 +39,13 @@ module.exports = (app, wss) => {
             console.error('Client başlatılırken bir hata oluştu:', error);
         }
         fs.writeFileSync(sessionPath, client.session.save());
-        await client.sendMessage("me", { message: "Hello!" });
         clients[userId] = client;
+        
         client.addEventHandler(handleNewMessage, new NewMessage({}));
         checkUnreadMessages(client);
         isInitialCheckDone = true;
-    }*/
-    /*
+    }
+    
     async function checkIfReplied(message) {
         try {
           if (!message.replyTo) return false;
@@ -404,7 +404,7 @@ module.exports = (app, wss) => {
             return null;
         }
     }
-*/
+
     app.post('/send-code', async (req, res) => {
         const { userId, apiId, apiHash, phoneNumber } = req.body;
 
@@ -451,14 +451,18 @@ module.exports = (app, wss) => {
             fs.writeFileSync(path.join(SESSION_DIR, `${userId}.session`), clientData.client.session.save());
             clients[userId] = clientData.client;
            
+            // Event handler ve unread messages kontrolü
+            clientData.client.addEventHandler(handleNewMessage, new NewMessage({}));
+            checkUnreadMessages(clientData.client);
+            isInitialCheckDone = true;
+
             res.json({ status: 'connected' });
         } catch (error) {
             console.error('Error verifying code:', error);
             res.status(500).json({ error: 'Failed to verify code.' });
         }
-        await clientData.client.sendMessage("me", { message: "Hello!" });
     });
-/*
+
     
     app.get('/contacts', async (req, res) => {
       const { userId } = req.query;
@@ -620,8 +624,6 @@ module.exports = (app, wss) => {
         res.status(500).json({ error: 'Failed to fetch messages.' });
     }
 });
-    */
-    
 
     wss.on('connection', (ws) => {
         console.log('New WebSocket connection established.');
