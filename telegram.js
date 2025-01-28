@@ -39,14 +39,9 @@ module.exports = (app, wss) => {
 
         clients[userId] = client;
 
-        client.addEventHandler(async (event) => {
-            const message = event.message || event.originalArgs.message; // Mesaj nesnesini doğru alın
-            if (!message) return; // Eğer mesaj yoksa devam etme
-        
+        client.on('message', async (message) => {
             console.log('Yeni mesaj alındı:', message);
-        
-            // Mesajın outgoing (giden) olup olmadığını kontrol edin
-            if (message.out) return;
+            if (!message || message.out) return;
         
             const isReplied = await checkIfReplied(message);
             if (!isReplied) {
@@ -57,7 +52,7 @@ module.exports = (app, wss) => {
                     await client.sendMessage(message.peerId, { message: response });
                 }
             }
-        }, new NewMessage({}));
+        });
 
 
         checkUnreadMessages(client);
@@ -73,16 +68,17 @@ module.exports = (app, wss) => {
         try {
             const dialogs = await client.getDialogs({ limit: 100 });
             for (const dialog of dialogs) {
-                const peer = dialog.entity; // Dialogdaki peer alınmalı
-                if (!peer || !(peer instanceof Api.PeerUser)) continue; // Sadece kullanıcılar için işlem yapın
+                const peer = dialog.entity;
+                if (!peer || !(peer instanceof Api.PeerUser)) continue; // Sadece kullanıcıları işleyin
     
-                const unreadCount = dialog.unreadCount || 0; // Okunmamış mesaj sayısını alın
+                const unreadCount = dialog.unreadCount || 0;
                 if (unreadCount > 0) {
                     console.log(`Okunmamış mesaj sayısı: ${unreadCount}, Peer ID: ${peer.id}`);
     
                     const unreadMessages = await client.getMessages(peer, { limit: unreadCount });
                     for (const message of unreadMessages) {
-                        if (message.out || message.isRead) continue; // Giden veya okunmuş mesajları atla
+                        // Okunmuş veya giden mesajları atla
+                        if (message.out || message.isRead || message.status === 'read') continue;
     
                         console.log('Okunmamış mesaj bulundu:', message);
     
@@ -102,6 +98,7 @@ module.exports = (app, wss) => {
             console.error('checkUnreadMessages sırasında hata oluştu:', error);
         }
     }
+    
     
 
     setInterval(async () => {
