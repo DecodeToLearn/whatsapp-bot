@@ -5,6 +5,7 @@ const cors = require('cors');
 const WebSocket = require('ws');
 
 const app = express();
+app.use('/media', express.static(path.join(__dirname, 'media')));
 const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
 
