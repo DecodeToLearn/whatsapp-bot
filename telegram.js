@@ -43,8 +43,8 @@ module.exports = (app, wss) => {
         clients[userId] = client;
         client.addEventHandler(handleNewMessage, new NewMessage({}));
         checkUnreadMessages(client);
-        isInitialCheckDone = true;*/
-    }
+        isInitialCheckDone = true;
+    }*/
     /*
     async function checkIfReplied(message) {
         try {
