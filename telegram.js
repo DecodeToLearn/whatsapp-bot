@@ -57,7 +57,7 @@ module.exports = (app, wss) => {
         }
       }
     // New handler function for incoming messages
-    async function handleNewMessage(event) {
+    async function handleNewMessage(event, client) {
         const message = event.message;
         if (message.isPrivate && !message.out) { // Check if it's an incoming private message
         console.log('Yeni mesaj alındı:', message);
