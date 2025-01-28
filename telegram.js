@@ -19,7 +19,7 @@ module.exports = (app, wss) => {
         fs.mkdirSync(SESSION_DIR);
     }
 
-    async function createClient(userId, apiId, apiHash, phoneNumber, password, phoneCode) {
+   /* async function createClient(userId, apiId, apiHash, phoneNumber, password, phoneCode) {
         const sessionPath = path.join(SESSION_DIR, `${userId}.session`);
         const stringSession = new StringSession(fs.existsSync(sessionPath) ? fs.readFileSync(sessionPath, 'utf8') : '');
 
@@ -43,8 +43,9 @@ module.exports = (app, wss) => {
         clients[userId] = client;
         client.addEventHandler(handleNewMessage, new NewMessage({}));
         checkUnreadMessages(client);
-        isInitialCheckDone = true;
+        isInitialCheckDone = true;*/
     }
+    /*
     async function checkIfReplied(message) {
         try {
           if (!message.replyTo) return false;
@@ -403,7 +404,7 @@ module.exports = (app, wss) => {
             return null;
         }
     }
-
+*/
     app.post('/send-code', async (req, res) => {
         const { userId, apiId, apiHash, phoneNumber } = req.body;
 
@@ -449,12 +450,13 @@ module.exports = (app, wss) => {
             // Password doğrulama işlemi olmadan devam ediyoruz
             fs.writeFileSync(path.join(SESSION_DIR, `${userId}.session`), clientData.client.session.save());
             clients[userId] = clientData.client;
-
+           
             res.json({ status: 'connected' });
         } catch (error) {
             console.error('Error verifying code:', error);
             res.status(500).json({ error: 'Failed to verify code.' });
         }
+        await clientData.client.sendMessage("me", { message: "Hello!" });
     });
 /*
     
