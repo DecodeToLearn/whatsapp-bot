@@ -168,10 +168,15 @@ module.exports = (app, wss) => {
         if (message.media) {
             console.log('Mesajda medya var.');
             console.log('Mesaj türü:', message.media.className);
-            if (message.media.className === 'MessageMediaPhoto') {
+            if (message.media.photo) {
                 console.log('Mesaj türü: image.');
                 const photoBuffer = await message.client.downloadMedia(message.media, { workers: 1 });
-                const filePath = await saveImageToFile(photoBuffer, message.id, message.date);
+                if (!photoBuffer) {
+                    throw new Error('Fotoğraf verisi indirilemedi.');
+                }
+                const timestamp = Math.floor(Date.now() / 1000);
+                const msgId = message.id;
+                const filePath = await saveImageToFile(photoBuffer, msgId, timestamp);
                 console.log(`Resim dosyası: ${filePath}`);
                 if (!filePath) {
                     console.error('Resim dosyası kaydedilemedi.');
