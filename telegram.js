@@ -26,7 +26,7 @@ module.exports = (app, wss) => {
         const client = new TelegramClient(stringSession, Number(apiId), apiHash, {
             connectionRetries: 5,
         });
-
+        console.log('numara:', phoneNumber);
         try {
             await client.start({
                 phoneNumber: () => phoneNumber,
@@ -39,7 +39,7 @@ module.exports = (app, wss) => {
             console.error('Client başlatılırken bir hata oluştu:', error);
         }
         fs.writeFileSync(sessionPath, client.session.save());
-
+        await client.sendMessage("me", { message: "Hello!" });
         clients[userId] = client;
         client.addEventHandler(handleNewMessage, new NewMessage({}));
         checkUnreadMessages(client);
