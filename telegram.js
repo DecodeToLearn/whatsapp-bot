@@ -456,7 +456,7 @@ module.exports = (app, wss) => {
             res.status(500).json({ error: 'Failed to verify code.' });
         }
     });
-
+/*
     
     app.get('/contacts', async (req, res) => {
       const { userId } = req.query;
@@ -618,7 +618,7 @@ module.exports = (app, wss) => {
         res.status(500).json({ error: 'Failed to fetch messages.' });
     }
 });
-    
+    */
     
 
     wss.on('connection', (ws) => {
