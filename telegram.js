@@ -40,7 +40,7 @@ module.exports = (app, wss) => {
         }
         fs.writeFileSync(sessionPath, client.session.save());
         clients[userId] = client;
-        
+
         client.addEventHandler(handleNewMessage, new NewMessage({}));
         checkUnreadMessages(client);
         isInitialCheckDone = true;
@@ -64,7 +64,7 @@ module.exports = (app, wss) => {
         
         const isReplied = await checkIfReplied(message);
         if (!isReplied) {
-            const response = await getChatGPTResponse(message);
+            const response = await getChatGPTResponse(message, client);
             if (response) {
             await message.reply({ message: response });
             }
@@ -93,7 +93,16 @@ module.exports = (app, wss) => {
                 if (message.out || message.isRead) continue;
       
                 console.log('İşlenen mesaj ID:', message.id);
-                // Rest of the processing logic...
+   
+                        const isReplied = await checkIfReplied(message);
+                        if (!isReplied) {
+                            console.log('Mesaj daha önce yanıtlanmamış, ChatGPT yanıtı alınıyor...');
+                            const response = await getChatGPTResponse(message, client);
+                            if (response) {
+                                console.log('ChatGPT yanıtı alındı, mesaj gönderiliyor...');
+                                await client.sendMessage(peer, { message: response });
+                         }
+                }
               }
             }
           }
@@ -113,7 +122,7 @@ module.exports = (app, wss) => {
         }
     }, 1 * 60 * 1000); // 1 dakika
 
-    async function getChatGPTResponse(message) {
+    async function getChatGPTResponse(message, client) {
         console.log('getChatGPTResponse fonksiyonu çağrıldı:', message);
         const apiKey = process.env.OPENAI_API_KEY;
         if (!apiKey) {
