@@ -41,7 +41,7 @@ module.exports = (app, wss) => {
         fs.writeFileSync(sessionPath, client.session.save());
         clients[userId] = client;
 
-        client.addEventHandler((event) => handleNewMessage(client, event), new NewMessage({}));
+        client.addEventHandler(handleNewMessage, new NewMessage({}));
         checkUnreadMessages(client);
         isInitialCheckDone = true;
     }
@@ -57,14 +57,14 @@ module.exports = (app, wss) => {
         }
       }
     // New handler function for incoming messages
-    async function handleNewMessage(event, client) {
+    async function handleNewMessage(event) {
         const message = event.message;
         if (message.isPrivate && !message.out) { // Check if it's an incoming private message
         console.log('Yeni mesaj alındı:', message);
         
         const isReplied = await checkIfReplied(message);
         if (!isReplied) {
-            const response = await getChatGPTResponse(message, client);
+            const response = await getChatGPTResponse(message);
             if (response) {
             await message.reply({ message: response });
             }
@@ -79,7 +79,7 @@ module.exports = (app, wss) => {
           for (const dialog of dialogs) {
             const peer = dialog.entity;
             const unreadCount = dialog.unreadCount || 0;
-           // console.log(`Diyalog: ${peer.className}, Okunmamış: ${unreadCount}`);
+          //  console.log(`Diyalog: ${peer.className}, Okunmamış: ${unreadCount}`);
       
             if (unreadCount > 0 && peer instanceof Api.PeerUser) {
               console.log(`Okunmamış mesajlar bulundu (${unreadCount} adet) - Peer: ${peer.userId}`);
@@ -97,11 +97,11 @@ module.exports = (app, wss) => {
                         const isReplied = await checkIfReplied(message);
                         if (!isReplied) {
                             console.log('Mesaj daha önce yanıtlanmamış, ChatGPT yanıtı alınıyor...');
-                            const response = await getChatGPTResponse(message, client);
+                            const response = await getChatGPTResponse(message);
                             if (response) {
                                 console.log('ChatGPT yanıtı alındı, mesaj gönderiliyor...');
                                 await client.sendMessage(peer, { message: response });
-                         }
+                     }
                 }
               }
             }
@@ -122,7 +122,7 @@ module.exports = (app, wss) => {
         }
     }, 1 * 60 * 1000); // 1 dakika
 
-    async function getChatGPTResponse(message, client) {
+    async function getChatGPTResponse(message) {
         console.log('getChatGPTResponse fonksiyonu çağrıldı:', message);
         const apiKey = process.env.OPENAI_API_KEY;
         if (!apiKey) {
@@ -461,7 +461,7 @@ module.exports = (app, wss) => {
             clients[userId] = clientData.client;
            
             // Event handler ve unread messages kontrolü
-            clientData.client.addEventHandler((event) => handleNewMessage(clientData.client, event), new NewMessage({}));
+            clientData.client.addEventHandler(handleNewMessage, new NewMessage({}));
             checkUnreadMessages(clientData.client);
             isInitialCheckDone = true;
 
