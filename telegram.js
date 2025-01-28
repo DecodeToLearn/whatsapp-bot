@@ -41,49 +41,65 @@ module.exports = (app, wss) => {
         fs.writeFileSync(sessionPath, client.session.save());
 
         clients[userId] = client;
-
+        client.addEventHandler(handleNewMessage, new NewMessage({}));
         checkUnreadMessages(client);
         isInitialCheckDone = true;
     }
     async function checkIfReplied(message) {
-        if (!message || !message.replyTo) return false; // Yanıtlanmamış
-        const replies = await message.getReplies(); // Yanıtları al
-        return replies && replies.length > 0; // Eğer yanıt varsa true döndür
-    }
-
-    async function checkUnreadMessages(client) {
         try {
-            const dialogs = await client.getDialogs({ limit: 100 });
-            for (const dialog of dialogs) {
-                const peer = dialog.entity;
-                if (!peer || !(peer instanceof Api.PeerUser)) continue;
-    
-                const unreadCount = dialog.unreadCount || 0;
-                if (unreadCount > 0) {
-                    console.log(`Okunmamış mesaj sayısı: ${unreadCount}, Peer ID: ${peer.id}`);
-    
-                    const unreadMessages = await client.getMessages(peer, { limit: unreadCount });
-                    for (const message of unreadMessages) {
-                        if (message.out || message.isRead) continue;
-    
-                        console.log('Okunmamış mesaj bulundu:', message);
-    
-                        const isReplied = await checkIfReplied(message);
-                        if (!isReplied) {
-                            console.log('Mesaj daha önce yanıtlanmamış, ChatGPT yanıtı alınıyor...');
-                            const response = await getChatGPTResponse(message);
-                            if (response) {
-                                console.log('ChatGPT yanıtı alındı, mesaj gönderiliyor...');
-                                await client.sendMessage(peer, { message: response });
-                            }
-                        }
-                    }
-                }
-            }
+          if (!message.replyTo) return false;
+          const replies = await message.getReplies({ limit: 1 });
+          return replies.length > 0;
         } catch (error) {
-            console.error('checkUnreadMessages sırasında hata oluştu:', error);
+          console.error('Yanıt kontrolü hatası:', error);
+          return false;
+        }
+      }
+    // New handler function for incoming messages
+    async function handleNewMessage(event) {
+        const message = event.message;
+        if (message.isPrivate && !message.out) { // Check if it's an incoming private message
+        console.log('Yeni mesaj alındı:', message);
+        
+        const isReplied = await checkIfReplied(message);
+        if (!isReplied) {
+            const response = await getChatGPTResponse(message);
+            if (response) {
+            await message.reply({ message: response });
+            }
+        }
         }
     }
+    async function checkUnreadMessages(client) {
+        try {
+          const dialogs = await client.getDialogs({ limit: 100 });
+          console.log(`Toplam ${dialogs.length} diyalog tarandı.`);
+      
+          for (const dialog of dialogs) {
+            const peer = dialog.entity;
+            const unreadCount = dialog.unreadCount || 0;
+            console.log(`Diyalog: ${peer.className}, Okunmamış: ${unreadCount}`);
+      
+            if (unreadCount > 0 && peer instanceof Api.PeerUser) {
+              console.log(`Okunmamış mesajlar bulundu (${unreadCount} adet) - Peer: ${peer.userId}`);
+      
+              const unreadMessages = await client.getMessages(peer, { 
+                limit: unreadCount, 
+                read: false 
+              });
+      
+              for (const message of unreadMessages) {
+                if (message.out || message.isRead) continue;
+      
+                console.log('İşlenen mesaj ID:', message.id);
+                // Rest of the processing logic...
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Hata:', error);
+        }
+      }
     
     
     
