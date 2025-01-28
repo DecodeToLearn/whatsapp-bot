@@ -41,7 +41,7 @@ module.exports = (app, wss) => {
         fs.writeFileSync(sessionPath, client.session.save());
         clients[userId] = client;
 
-        client.addEventHandler(handleNewMessage, new NewMessage({}));
+        client.addEventHandler((event) => handleNewMessage(client, event), new NewMessage({}));
         checkUnreadMessages(client);
         isInitialCheckDone = true;
     }
@@ -79,7 +79,7 @@ module.exports = (app, wss) => {
           for (const dialog of dialogs) {
             const peer = dialog.entity;
             const unreadCount = dialog.unreadCount || 0;
-            console.log(`Diyalog: ${peer.className}, Okunmamış: ${unreadCount}`);
+           // console.log(`Diyalog: ${peer.className}, Okunmamış: ${unreadCount}`);
       
             if (unreadCount > 0 && peer instanceof Api.PeerUser) {
               console.log(`Okunmamış mesajlar bulundu (${unreadCount} adet) - Peer: ${peer.userId}`);
@@ -461,7 +461,7 @@ module.exports = (app, wss) => {
             clients[userId] = clientData.client;
            
             // Event handler ve unread messages kontrolü
-            clientData.client.addEventHandler(handleNewMessage, new NewMessage({}));
+            clientData.client.addEventHandler((event) => handleNewMessage(clientData.client, event), new NewMessage({}));
             checkUnreadMessages(clientData.client);
             isInitialCheckDone = true;
 
