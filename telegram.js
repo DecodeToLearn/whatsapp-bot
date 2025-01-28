@@ -40,7 +40,9 @@ module.exports = (app, wss) => {
         clients[userId] = client;
 
         client.addEventHandler(async (event) => {
-            const message = event.message;
+            const message = event.message || event.originalArgs.message; // Mesaj nesnesini doğru alın
+            if (!message) return; // Eğer mesaj yoksa devam etme
+        
             console.log('Yeni mesaj alındı:', message);
         
             // Mesajın outgoing (giden) olup olmadığını kontrol edin
@@ -62,19 +64,28 @@ module.exports = (app, wss) => {
         isInitialCheckDone = true;
     }
     async function checkIfReplied(message) {
-        return message.replyTo;
+        if (!message || !message.replyTo) return false; // Yanıtlanmamış
+        const replies = await message.getReplies(); // Yanıtları al
+        return replies && replies.length > 0; // Eğer yanıt varsa true döndür
     }
 
     async function checkUnreadMessages(client) {
-        const dialogs = await client.getDialogs({ limit: 100 });
-        for (const dialog of dialogs) {
-            const peer = dialog.peer;
-            if (dialog.unreadCount > 0) {
-                console.log(`Okunmamış mesaj sayısı: ${dialog.unreadCount}, Peer ID: ${peer.userId}`);
-                const unreadMessages = await client.getMessages(peer, { limit: dialog.unreadCount });
-                for (const message of unreadMessages) {
-                    if (!message.read) {
+        try {
+            const dialogs = await client.getDialogs({ limit: 100 });
+            for (const dialog of dialogs) {
+                const peer = dialog.entity; // Dialogdaki peer alınmalı
+                if (!peer || !(peer instanceof Api.PeerUser)) continue; // Sadece kullanıcılar için işlem yapın
+    
+                const unreadCount = dialog.unreadCount || 0; // Okunmamış mesaj sayısını alın
+                if (unreadCount > 0) {
+                    console.log(`Okunmamış mesaj sayısı: ${unreadCount}, Peer ID: ${peer.id}`);
+    
+                    const unreadMessages = await client.getMessages(peer, { limit: unreadCount });
+                    for (const message of unreadMessages) {
+                        if (message.out || message.isRead) continue; // Giden veya okunmuş mesajları atla
+    
                         console.log('Okunmamış mesaj bulundu:', message);
+    
                         const isReplied = await checkIfReplied(message);
                         if (!isReplied) {
                             console.log('Mesaj daha önce yanıtlanmamış, ChatGPT yanıtı alınıyor...');
@@ -87,8 +98,11 @@ module.exports = (app, wss) => {
                     }
                 }
             }
+        } catch (error) {
+            console.error('checkUnreadMessages sırasında hata oluştu:', error);
         }
     }
+    
 
     setInterval(async () => {
         if (isInitialCheckDone) {
