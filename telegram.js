@@ -170,7 +170,7 @@ module.exports = (app, wss) => {
             console.log('Mesaj türü:', message.media.className);
             if (message.media.className === 'MessageMediaPhoto') {
                 console.log('Mesaj türü: image.');
-                const photoBuffer = await client.downloadMedia(message.media, { workers: 1 });
+                const photoBuffer = await message.client.downloadMedia(message.media, { workers: 1 });
                 const filePath = await saveImageToFile(photoBuffer, message.id, message.date);
                 console.log(`Resim dosyası: ${filePath}`);
                 if (!filePath) {
@@ -181,7 +181,7 @@ module.exports = (app, wss) => {
                 caption = message.message;
             } else if (message.media.className === 'MessageMediaDocument' && message.media.document.mimeType === 'audio/ogg') {
                 console.log('Mesaj türü: ptt (voice message).');
-                const audioBuffer = await client.downloadMedia(message.media, { workers: 1 });
+                const audioBuffer = await message.client.downloadMedia(message.media, { workers: 1 });
                 text = await transcribeAudio(audioBuffer);
                 console.log(`Sesli mesaj metne dönüştürüldü: ${text}`);
             } else {
