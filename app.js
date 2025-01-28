@@ -3,7 +3,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const WebSocket = require('ws');
-
+const path = require('path');
 const app = express();
 app.use('/media', express.static(path.join(__dirname, 'media')));
 const server = require('http').createServer(app);
