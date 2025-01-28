@@ -27,33 +27,20 @@ module.exports = (app, wss) => {
             connectionRetries: 5,
         });
 
-        await client.start({
-            phoneNumber: () => phoneNumber,
-            password: () => password,
-            phoneCode: () => phoneCode,
-            onError: (err) => console.log(err),
-        });
-
-        console.log('You should now be connected.');
+        try {
+            await client.start({
+                phoneNumber: () => phoneNumber,
+                password: () => password,
+                phoneCode: () => phoneCode,
+                onError: (err) => console.log('Hata:', err),
+            });
+            console.log('Client başlatıldı ve event handler eklendi.');
+        } catch (error) {
+            console.error('Client başlatılırken bir hata oluştu:', error);
+        }
         fs.writeFileSync(sessionPath, client.session.save());
 
         clients[userId] = client;
-
-        client.on('message', async (message) => {
-            console.log('Yeni mesaj alındı:', message);
-            if (!message || message.out) return;
-        
-            const isReplied = await checkIfReplied(message);
-            if (!isReplied) {
-                console.log('Mesaj daha önce yanıtlanmamış, ChatGPT yanıtı alınıyor...');
-                const response = await getChatGPTResponse(message);
-                if (response) {
-                    console.log('ChatGPT yanıtı alındı, mesaj gönderiliyor...');
-                    await client.sendMessage(message.peerId, { message: response });
-                }
-            }
-        });
-
 
         checkUnreadMessages(client);
         isInitialCheckDone = true;
@@ -69,7 +56,7 @@ module.exports = (app, wss) => {
             const dialogs = await client.getDialogs({ limit: 100 });
             for (const dialog of dialogs) {
                 const peer = dialog.entity;
-                if (!peer || !(peer instanceof Api.PeerUser)) continue; // Sadece kullanıcıları işleyin
+                if (!peer || !(peer instanceof Api.PeerUser)) continue;
     
                 const unreadCount = dialog.unreadCount || 0;
                 if (unreadCount > 0) {
@@ -77,8 +64,7 @@ module.exports = (app, wss) => {
     
                     const unreadMessages = await client.getMessages(peer, { limit: unreadCount });
                     for (const message of unreadMessages) {
-                        // Okunmuş veya giden mesajları atla
-                        if (message.out || message.isRead || message.status === 'read') continue;
+                        if (message.out || message.isRead) continue;
     
                         console.log('Okunmamış mesaj bulundu:', message);
     
@@ -98,6 +84,7 @@ module.exports = (app, wss) => {
             console.error('checkUnreadMessages sırasında hata oluştu:', error);
         }
     }
+    
     
     
 
