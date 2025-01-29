@@ -9,6 +9,13 @@ const ffmpeg = require('fluent-ffmpeg');
 const clients = {};
 let isInitialCheckDone = false;
 
+async function registerUser(userId, accessToken) {
+    clients[userId] = { accessToken };
+    console.log(`User ${userId} registered with access token.`);
+    checkUnreadMessages(userId);
+    isInitialCheckDone = true;
+}
+
 module.exports = (app, wss) => {
     const SESSION_DIR = './instagram_sessions';
 
@@ -26,13 +33,6 @@ module.exports = (app, wss) => {
             }
         });
     });
-
-    async function registerUser(userId, accessToken) {
-        clients[userId] = { accessToken };
-        console.log(`User ${userId} registered with access token.`);
-        checkUnreadMessages(userId);
-        isInitialCheckDone = true;
-    }
 
     async function checkIfReplied(message) {
         // Instagram API'sinde mesaj yanıtlarını kontrol etme
@@ -392,7 +392,7 @@ module.exports = (app, wss) => {
         }
     }
 
-    app.post('/webhook', (req, res) => {
+    app.post('/instagram', (req, res) => {
         const body = req.body;
 
         if (body.object === 'instagram') {
@@ -409,7 +409,7 @@ module.exports = (app, wss) => {
         }
     });
 
-    app.get('/webhook', (req, res) => {
+    app.get('/instagram', (req, res) => {
         const VERIFY_TOKEN = process.env.INSTAGRAM_VERIFY_TOKEN;
 
         const mode = req.query['hub.mode'];
@@ -477,5 +477,6 @@ module.exports = (app, wss) => {
         }
     });
 };
+
 module.exports.registerUser = registerUser;
 module.exports.clients = clients;
