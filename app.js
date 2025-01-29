@@ -5,6 +5,7 @@ const cors = require('cors');
 const WebSocket = require('ws');
 const path = require('path');
 const app = express();
+const { registerUser } = require('./instagram');
 app.use('/media', express.static(path.join(__dirname, 'media')));
 const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -40,13 +41,19 @@ app.post('/register-instagram', (req, res) => {
         return res.status(400).json({ error: 'User ID and access token are required.' });
     }
 
-    // Instagram.js dosyasındaki registerUser fonksiyonunu çağırın
-    require('./instagram').registerUser(userId, accessToken)
+    registerUser(userId, accessToken)
         .then(() => res.json({ status: 'registered' }))
         .catch(error => {
             console.error('Error registering user:', error);
             res.status(500).json({ error: 'Failed to register user.' });
         });
+});
+
+app.get('/check-user-instagram/:userId', (req, res) => {
+    const { userId } = req.params;
+    const isConnected = checkUserConnection(userId); // Bu fonksiyonu aşağıda tanımlayacağız
+
+    res.json({ connected: isConnected });
 });
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
