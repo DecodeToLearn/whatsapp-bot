@@ -32,7 +32,22 @@ app.get('/check-user/:userId', (req, res) => {
 
     res.json({ connected: isConnected });
 });
+// Instagram kullanıcı kaydı için endpoint
+app.post('/register-instagram', (req, res) => {
+    const { userId, accessToken } = req.body;
 
+    if (!userId || !accessToken) {
+        return res.status(400).json({ error: 'User ID and access token are required.' });
+    }
+
+    // Instagram.js dosyasındaki registerUser fonksiyonunu çağırın
+    require('./instagram').registerUser(userId, accessToken)
+        .then(() => res.json({ status: 'registered' }))
+        .catch(error => {
+            console.error('Error registering user:', error);
+            res.status(500).json({ error: 'Failed to register user.' });
+        });
+});
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Sunucu çalışıyor: http://localhost:${PORT}`);
