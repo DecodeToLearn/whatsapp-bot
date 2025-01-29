@@ -5,7 +5,7 @@ const cors = require('cors');
 const WebSocket = require('ws');
 const path = require('path');
 const app = express();
-const { registerUser } = require('./instagram');
+
 app.use('/media', express.static(path.join(__dirname, 'media')));
 const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -33,21 +33,24 @@ app.get('/check-user/:userId', (req, res) => {
 
     res.json({ connected: isConnected });
 });
-// Instagram kullanıcı kaydı için endpoint
-app.post('/register-instagram', (req, res) => {
+const { registerUser } = require('./instagram');
+
+app.post('/register-instagram', async (req, res) => {
     const { userId, accessToken } = req.body;
 
     if (!userId || !accessToken) {
         return res.status(400).json({ error: 'User ID and access token are required.' });
     }
 
-    registerUser(userId, accessToken)
-        .then(() => res.json({ status: 'registered' }))
-        .catch(error => {
-            console.error('Error registering user:', error);
-            res.status(500).json({ error: 'Failed to register user.' });
-        });
+    try {
+        await registerUser(userId, accessToken);
+        res.json({ status: 'registered' });
+    } catch (error) {
+        console.error('Error registering user:', error);
+        res.status(500).json({ error: 'Failed to register user.' });
+    }
 });
+
 
 app.get('/check-user-instagram/:userId', (req, res) => {
     const { userId } = req.params;
