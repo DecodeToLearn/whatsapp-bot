@@ -17,17 +17,32 @@ module.exports = (app, wss) => {
     }
 
     // WebSocket bağlantısı
-    wss.on('connection', (ws) => {
-        ws.on('message', async (message) => {
-            const data = JSON.parse(message);
-            if (data.type === 'connect') {
-                const { instagramId, accessToken } = data;
-                clients[instagramId] = { accessToken, connected: true };
-                console.log(`✅ Instagram Bağlantı Kuruldu: ${instagramId}`);
-            }
+    wss.on('connection', (ws, req) => {
+        // Bağlantı URL'sinden parametreleri al
+        const params = new URLSearchParams(req.url.split('?')[1]);
+        const instagramId = params.get('instagramId');
+        const accessToken = params.get('accessToken');
+    
+        if (!instagramId || !accessToken) {
+            console.error('🚨 Hatalı WebSocket Bağlantısı: Instagram ID veya Token eksik!');
+            ws.close();
+            return;
+        }
+    
+        // Kullanıcıyı WebSocket istemcilerine ekle
+        clients[instagramId] = { accessToken, connected: true };
+        console.log(`✅ Instagram Bağlantı Kuruldu: ${instagramId}`);
+    
+        ws.on('message', (message) => {
+            console.log('📩 Gelen WebSocket Mesajı:', message);
+        });
+    
+        ws.on('close', () => {
+            console.log(`🔴 Kullanıcı Bağlantıyı Kapattı: ${instagramId}`);
+            delete clients[instagramId]; // Kullanıcıyı temizle
         });
     });
-
+    
     async function checkIfReplied(message) {
         // Instagram API'sinde mesaj yanıtlarını kontrol etme
         // Bu kısım Instagram API'sine göre uyarlanmalıdır

@@ -5,7 +5,7 @@ const cors = require('cors');
 const WebSocket = require('ws');
 const path = require('path');
 const app = express();
-
+const axios = require('axios');
 app.use('/media', express.static(path.join(__dirname, 'media')));
 const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -33,18 +33,37 @@ app.get('/check-user/:userId', (req, res) => {
     res.json({ connected: isConnected });
 });
 
-app.get('/check-user-instagram/:instagramId', (req, res) => {
+app.get('/check-user-instagram/:instagramId', async (req, res) => {
     const { instagramId } = req.params;
+    let accessToken = req.headers.authorization ? req.headers.authorization.replace('Bearer ', '') : null;
 
-    // Instagram istemcilerini kontrol et
-    const instagramClient = require('./instagram').clients[instagramId];
+    // Eğer istemci zaten WebSocket'e bağlanmışsa, doğrudan döndür.
+    if (clients[instagramId] && clients[instagramId].connected) {
+        return res.json({ connected: true, username: clients[instagramId].username || "Bilinmeyen Kullanıcı" });
+    }
 
-    if (instagramClient && instagramClient.connected) {
-        res.json({ connected: true });
-    } else {
-        res.json({ connected: false });
+    // Eğer WebSocket bağlantısı yoksa ve accessToken alınamamışsa hata ver.
+    if (!accessToken) {
+        return res.status(401).json({ connected: false, error: "Access Token eksik!" });
+    }
+
+    // Kullanıcı WebSocket'e bağlı değilse, Instagram API'den doğrula
+    console.log('⚠️ Kullanıcı WebSocket bağlantısını açmamış, API ile kontrol ediliyor...');
+    try {
+        const response = await axios.get(`https://graph.instagram.com/me?fields=id,username&access_token=${accessToken}`);
+        
+        if (response.data.id) {
+            return res.json({ connected: true, username: response.data.username });
+        } else {
+            return res.json({ connected: false, error: "Instagram ID doğrulanamadı." });
+        }
+    } catch (error) {
+        console.error("Instagram API hatası:", error.response ? error.response.data : error.message);
+        return res.status(500).json({ connected: false, error: "Instagram API doğrulaması başarısız." });
     }
 });
+
+
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
