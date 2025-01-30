@@ -493,23 +493,28 @@ module.exports = (app, wss) => {
         }
     
         try {
-            const response = await axios.get(`https://graph.instagram.com/v21.0/${chatId}/messages?fields=id,from,text,attachments&access_token=${accessToken}`);
+            // API çağrısı
+            const response = await axios.get(`https://graph.instagram.com/v21.0/${chatId}/messages?fields=id,message,from,created_time,attachments&access_token=${accessToken}`);
+            
+            // Mesajları işle
             const messages = response.data.data.map(message => ({
                 id: message.id,
-                from: message.from && message.from.id ? message.from.id : "Bilinmeyen Kullanıcı", // Eğer `id` yoksa güvenli şekilde ekle
-                text: message.text || "",
-                media: message.attachments ? message.attachments.map(attachment => ({
-                    type: attachment.type,
-                    url: attachment.url,
-                })) : null,
+                username: message.from.username || "Bilinmeyen Kullanıcı",
+                text: message.message || "Mesaj içeriği yok",
+                createdTime: new Date(message.created_time).toLocaleString('tr-TR'),
+                attachments: message.attachments ? message.attachments.data.map(attachment => ({
+                    type: attachment.type, // Medya türü (ör: "image", "video", vb.)
+                    url: attachment.url // Medya URL'si
+                })) : []
             }));
     
             res.json({ messages });
         } catch (error) {
-            console.error('Error fetching messages:', error.response ? error.response.data : error.message);
-            res.status(500).json({ error: 'Failed to fetch messages.', details: error.response ? error.response.data : error.message });
+            console.error('Mesajlar alınırken hata:', error.response ? error.response.data : error.message);
+            res.status(500).json({ error: 'Mesajlar alınamadı.', details: error.response ? error.response.data : error.message });
         }
     });
+    
     
 };
 
