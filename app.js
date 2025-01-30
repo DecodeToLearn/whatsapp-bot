@@ -36,18 +36,18 @@ app.get('/check-user/:userId', (req, res) => {
 const { registerUser } = require('./instagram');
 
 app.post('/register-instagram', async (req, res) => {
-    const { userId, accessToken } = req.body;
+    const { userId, instagramId, accessToken } = req.body;
 
-    if (!userId || !accessToken) {
-        return res.status(400).json({ error: 'User ID and access token are required.' });
+    if (!userId || !instagramId || !accessToken) {
+        return res.status(400).json({ error: 'User ID, Instagram ID ve access token zorunludur.' });
     }
 
     try {
-        await registerUser(userId, accessToken);
+        await registerUser(userId, instagramId, accessToken);
         res.json({ status: 'registered' });
     } catch (error) {
-        console.error('Error registering user:', error);
-        res.status(500).json({ error: 'Failed to register user.' });
+        console.error('Kullanıcı kaydedilirken hata oluştu:', error);
+        res.status(500).json({ error: 'Kullanıcı kaydı başarısız.' });
     }
 });
 

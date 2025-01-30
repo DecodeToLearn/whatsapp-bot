@@ -9,9 +9,10 @@ const ffmpeg = require('fluent-ffmpeg');
 const clients = {};
 let isInitialCheckDone = false;
 
-async function registerUser(userId, accessToken) {
-    clients[userId] = { accessToken };
-    console.log(`User ${userId} registered with access token.`);
+// Kullanıcı kaydetme fonksiyonu
+async function registerUser(userId, instagramId, accessToken) {
+    clients[userId] = { instagramId, accessToken };
+    console.log(`✅ Kullanıcı ${userId} (${instagramId}) başarıyla kaydedildi.`);
     checkUnreadMessages(userId);
     isInitialCheckDone = true;
 }
