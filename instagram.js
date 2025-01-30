@@ -435,38 +435,42 @@ module.exports = (app, wss) => {
         }
     });
 
- app.get('/contacts-instagram', async (req, res) => {
-    const { instagramId, accessToken } = req.query;
-
-    if (!clients[instagramId]) {
-        clients[instagramId] = { accessToken, connected: true };
-    }
-
-    try {
-        // 📌 DM konuşmalarını çek
-        const response = await axios.get(`https://graph.instagram.com/v21.0/${instagramId}/conversations?fields=id,participants,message_count&access_token=${accessToken}`);
-        const conversations = response.data.data;
-
-        // 📌 UI için konuşmaları formatla
-        const contactList = conversations.map(convo => {
-            const participant = convo.participants.find(p => p.id !== instagramId); // Kendi ID'ni filtrele
-
-            return {
-                chatId: convo.id, // Konuşma ID'si
-                userId: participant?.id || "Bilinmiyor",
-                name: participant?.name || "Bilinmeyen Kişi",
-                username: participant?.username || "",
-                message_count: convo.message_count || 0
-            };
-        });
-
-        res.json({ contacts: contactList });
-
-    } catch (error) {
-        console.error('❌ DM konuşmaları alınamadı:', error.response ? error.response.data : error.message);
-        res.status(500).json({ error: 'Konuşmalar çekilemedi.', details: error.response ? error.response.data : error.message });
-    }
-});
+    app.get('/contacts-instagram', async (req, res) => {
+        const { instagramId, accessToken } = req.query;
+    
+        if (!clients[instagramId]) {
+            clients[instagramId] = { accessToken, connected: true };
+        }
+    
+        try {
+            // 📌 DM konuşmalarını çek
+            const response = await axios.get(`https://graph.instagram.com/v21.0/${instagramId}/conversations?fields=id,participants,message_count&access_token=${accessToken}`);
+            const conversations = response.data.data || []; // Boş array döndürerek hatayı önle
+    
+            // 📌 UI için konuşmaları formatla
+            const contactList = conversations.map(convo => {
+                // **participants** nesnesi içinde `data` array'i var mı? Yoksa boş array ata.
+                const participants = convo.participants && Array.isArray(convo.participants.data) ? convo.participants.data : [];
+    
+                // **Katılımcıyı belirle (kendi ID'n hariç)**
+                const participant = participants.find(p => p.id !== instagramId) || {}; 
+    
+                return {
+                    chatId: convo.id, // Konuşma ID'si
+                    userId: participant.id || "Bilinmiyor",
+                    name: participant.username || "Bilinmeyen Kişi",
+                    message_count: convo.message_count || 0
+                };
+            });
+    
+            res.json({ contacts: contactList });
+    
+        } catch (error) {
+            console.error('❌ DM konuşmaları alınamadı:', error.response ? error.response.data : error.message);
+            res.status(500).json({ error: 'Konuşmalar çekilemedi.', details: error.response ? error.response.data : error.message });
+        }
+    });
+    
 
 
     app.get('/messages-instagram/:chatId', async (req, res) => {
