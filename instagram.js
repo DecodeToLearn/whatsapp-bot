@@ -471,5 +471,4 @@ module.exports = (app, wss) => {
 };
 
 
-module.exports.registerUser = registerUser;
 module.exports.clients = clients;
