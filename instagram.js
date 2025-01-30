@@ -487,29 +487,30 @@ module.exports = (app, wss) => {
     app.get('/messages-instagram/:chatId', async (req, res) => {
         const { instagramId, accessToken } = req.query;
         const { chatId } = req.params;
-
+    
         if (!clients[instagramId]) {
             clients[instagramId] = { accessToken, connected: true };
         }
-
+    
         try {
-            const response = await axios.get(`https://graph.instagram.com/v21.0/${chatId}/messages?access_token=${accessToken}`);
+            const response = await axios.get(`https://graph.instagram.com/v21.0/${chatId}/messages?fields=id,from,text,attachments&access_token=${accessToken}`);
             const messages = response.data.data.map(message => ({
                 id: message.id,
-                from: message.from.id,
-                text: message.text,
+                from: message.from && message.from.id ? message.from.id : "Bilinmeyen Kullanıcı", // Eğer `id` yoksa güvenli şekilde ekle
+                text: message.text || "",
                 media: message.attachments ? message.attachments.map(attachment => ({
                     type: attachment.type,
                     url: attachment.url,
                 })) : null,
             }));
-
+    
             res.json({ messages });
         } catch (error) {
-            console.error('Error fetching messages:', error);
-            res.status(500).json({ error: 'Failed to fetch messages.' });
+            console.error('Error fetching messages:', error.response ? error.response.data : error.message);
+            res.status(500).json({ error: 'Failed to fetch messages.', details: error.response ? error.response.data : error.message });
         }
     });
+    
 };
 
 
