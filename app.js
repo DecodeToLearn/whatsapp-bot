@@ -30,27 +30,8 @@ require('./instagram')(app, wss);
 app.get('/check-user/:userId', (req, res) => {
     const { userId } = req.params;
     const isConnected = checkUserConnection(userId); // Bu fonksiyonu aşağıda tanımlayacağız
-
     res.json({ connected: isConnected });
 });
-const { registerUser } = require('./instagram');
-
-app.post('/register-instagram', async (req, res) => {
-    const { userId, instagramId, accessToken } = req.body;
-
-    if (!userId || !instagramId || !accessToken) {
-        return res.status(400).json({ error: 'User ID, Instagram ID ve access token zorunludur.' });
-    }
-
-    try {
-        await registerUser(userId, instagramId, accessToken);
-        res.json({ status: 'registered' });
-    } catch (error) {
-        console.error('Kullanıcı kaydedilirken hata oluştu:', error);
-        res.status(500).json({ error: 'Kullanıcı kaydı başarısız.' });
-    }
-});
-
 
 app.get('/check-user-instagram/:userId', (req, res) => {
     const { userId } = req.params;
@@ -67,7 +48,6 @@ function checkUserConnection(userId) {
     // WhatsApp ve Telegram istemcilerini kontrol edin
     const whatsappClient = require('./whatsapp').clients[userId];
     const telegramClient = require('./telegram').clients[userId];
-    const instagramClient = require('./instagram').clients[userId];
-    return (whatsappClient && whatsappClient.info) || (telegramClient && telegramClient.connected) ||
-    (instagramClient && instagramClient.connected);
+
+    return (whatsappClient && whatsappClient.info) || (telegramClient && telegramClient.connected);
 }

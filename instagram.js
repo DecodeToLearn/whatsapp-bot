@@ -9,14 +9,6 @@ const ffmpeg = require('fluent-ffmpeg');
 const clients = {};
 let isInitialCheckDone = false;
 
-// Kullanıcı kaydetme fonksiyonu
-async function registerUser(userId, instagramId, accessToken) {
-    clients[userId] = { instagramId, accessToken };
-    console.log(`✅ Kullanıcı ${userId} (${instagramId}) başarıyla kaydedildi.`);
-    checkUnreadMessages(userId);
-    isInitialCheckDone = true;
-}
-
 module.exports = (app, wss) => {
     const SESSION_DIR = './instagram_sessions';
 
@@ -28,9 +20,10 @@ module.exports = (app, wss) => {
     wss.on('connection', (ws) => {
         ws.on('message', async (message) => {
             const data = JSON.parse(message);
-            if (data.type === 'register') {
-                const { userId, accessToken } = data;
-                await registerUser(userId, accessToken);
+            if (data.type === 'connect') {
+                const { instagramId, accessToken } = data;
+                clients[instagramId] = { accessToken, connected: true };
+                console.log(`✅ Instagram Bağlantı Kuruldu: ${instagramId}`);
             }
         });
     });
@@ -380,16 +373,16 @@ module.exports = (app, wss) => {
         }
     }
 
-    async function sendMessage(recipientId, message) {
-        const accessToken = clients[recipientId].accessToken;
+    async function sendMessage(instagramId, recipientId, message) {
+        const accessToken = clients[instagramId].accessToken;
         try {
             await axios.post(`https://graph.instagram.com/v21.0/me/messages?access_token=${accessToken}`, {
                 recipient: { id: recipientId },
                 message: { text: message }
             });
-            console.log('Mesaj gönderildi:', message);
+            console.log(`📤 Mesaj gönderildi: ${recipientId} -> ${message}`);
         } catch (error) {
-            console.error('Mesaj gönderilemedi:', error);
+            console.error('❌ Mesaj gönderilemedi:', error);
         }
     }
 
@@ -428,14 +421,13 @@ module.exports = (app, wss) => {
     });
 
     app.get('/contacts-instagram', async (req, res) => {
-        const { userId } = req.query;
+        const { instagramId, accessToken } = req.query;
 
-        if (!clients[userId]) {
-            return res.status(400).json({ error: 'User not registered.' });
+        if (!clients[instagramId]) {
+            clients[instagramId] = { accessToken, connected: true };
         }
 
         try {
-            const accessToken = clients[userId].accessToken;
             const response = await axios.get(`https://graph.instagram.com/v21.0/me/contacts?access_token=${accessToken}`);
             const contacts = response.data.data.map(contact => ({
                 id: contact.id,
@@ -445,21 +437,20 @@ module.exports = (app, wss) => {
 
             res.json({ contacts });
         } catch (error) {
-            console.error('Error fetching contacts:', error);
-            res.status(500).json({ error: 'Failed to fetch contacts.' });
+            console.error('❌ Instagram kontakları alınamadı:', error);
+            res.status(500).json({ error: 'Kontak listesi çekilemedi.' });
         }
     });
 
     app.get('/messages-instagram/:chatId', async (req, res) => {
-        const { userId } = req.query;
+        const { instagramId, accessToken } = req.query;
         const { chatId } = req.params;
 
-        if (!clients[userId]) {
-            return res.status(400).json({ error: 'User not registered.' });
+        if (!clients[instagramId]) {
+            clients[instagramId] = { accessToken, connected: true };
         }
 
         try {
-            const accessToken = clients[userId].accessToken;
             const response = await axios.get(`https://graph.instagram.com/v21.0/${chatId}/messages?access_token=${accessToken}`);
             const messages = response.data.data.map(message => ({
                 id: message.id,
@@ -478,6 +469,7 @@ module.exports = (app, wss) => {
         }
     });
 };
+
 
 module.exports.registerUser = registerUser;
 module.exports.clients = clients;
