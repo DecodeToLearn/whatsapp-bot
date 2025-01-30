@@ -447,21 +447,31 @@ module.exports = (app, wss) => {
             const response = await axios.get(`https://graph.instagram.com/v21.0/${instagramId}/conversations?fields=id,participants,message_count&access_token=${accessToken}`);
             const conversations = response.data.data || []; // Boş array döndürerek hatayı önle
     
-            // 📌 UI için konuşmaları formatla
-            const contactList = conversations.map(convo => {
-                // **participants** nesnesi içinde `data` array'i var mı? Yoksa boş array ata.
+            // 🔍 **Her katılımcı için profili al**
+            const contactList = await Promise.all(conversations.map(async (convo) => {
                 const participants = convo.participants && Array.isArray(convo.participants.data) ? convo.participants.data : [];
-    
-                // **Katılımcıyı belirle (kendi ID'n hariç)**
+                
+                // **Kendi ID'n hariç birini bul**
                 const participant = participants.find(p => p.id !== instagramId) || {}; 
+    
+                // 🔍 **Katılımcının tam adını (profile_name) çek**
+                let profileName = "Bilinmeyen Kişi";
+                if (participant.id) {
+                    try {
+                        const profileResponse = await axios.get(`https://graph.instagram.com/${participant.id}?fields=id,username,name&access_token=${accessToken}`);
+                        profileName = profileResponse.data.name || participant.username; // Eğer isim varsa al, yoksa username kullan
+                    } catch (err) {
+                        console.error(`⚠️ Profil adı alınamadı: ${participant.id}`, err.message);
+                    }
+                }
     
                 return {
                     chatId: convo.id, // Konuşma ID'si
                     userId: participant.id || "Bilinmiyor",
-                    name: participant.username || "Bilinmeyen Kişi",
+                    name: profileName, // 🔥 Artık username değil, gerçek isim!
                     message_count: convo.message_count || 0
                 };
-            });
+            }));
     
             res.json({ contacts: contactList });
     
@@ -470,6 +480,7 @@ module.exports = (app, wss) => {
             res.status(500).json({ error: 'Konuşmalar çekilemedi.', details: error.response ? error.response.data : error.message });
         }
     });
+    
     
 
 
