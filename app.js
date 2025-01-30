@@ -33,12 +33,19 @@ app.get('/check-user/:userId', (req, res) => {
     res.json({ connected: isConnected });
 });
 
-app.get('/check-user-instagram/:userId', (req, res) => {
-    const { userId } = req.params;
-    const isConnected = checkUserConnection(userId); // Bu fonksiyonu aşağıda tanımlayacağız
+app.get('/check-user-instagram/:instagramId', (req, res) => {
+    const { instagramId } = req.params;
 
-    res.json({ connected: isConnected });
+    // Instagram istemcilerini kontrol et
+    const instagramClient = require('./instagram').clients[instagramId];
+
+    if (instagramClient && instagramClient.connected) {
+        res.json({ connected: true });
+    } else {
+        res.json({ connected: false });
+    }
 });
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Sunucu çalışıyor: http://localhost:${PORT}`);
