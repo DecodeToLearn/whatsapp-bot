@@ -406,36 +406,44 @@ module.exports = (app, wss) => {
     
         // Gelen webhook bildirimi
         if (body.object === 'instagram') {
-            body.entry.forEach(entry => {
-                entry.messaging.forEach(event => {
-                    if (event.message) {
-                        const senderId = event.sender.id;
-                        console.log(`Yeni mesaj alındı: Gönderen ID: ${senderId}`);
+            if (body.entry && Array.isArray(body.entry)) {
+                body.entry.forEach(entry => {
+                    if (entry.messaging && Array.isArray(entry.messaging)) {
+                        entry.messaging.forEach(event => {
+                            if (event.message) {
+                                const senderId = event.sender.id;
+                                console.log(`Yeni mesaj alındı: Gönderen ID: ${senderId}`);
     
-                        // Metin mesajı
-                        if (event.message.text) {
-                            const textMessage = event.message.text;
-                            console.log(`Metin mesajı: ${textMessage}`);
-                        }
-    
-                        // Görsel (fotoğraf) mesajı
-                        if (event.message.attachments) {
-                            event.message.attachments.forEach(attachment => {
-                                if (attachment.type === 'image') {
-                                    const imageUrl = attachment.payload.url;
-                                    console.log(`Görsel mesajı alındı: ${imageUrl}`);
+                                // Metin mesajı
+                                if (event.message.text) {
+                                    const textMessage = event.message.text;
+                                    console.log(`Metin mesajı: ${textMessage}`);
                                 }
     
-                                // Sesli mesaj
-                                if (attachment.type === 'audio') {
-                                    const audioUrl = attachment.payload.url;
-                                    console.log(`Sesli mesaj alındı: ${audioUrl}`);
+                                // Görsel (fotoğraf) mesajı
+                                if (event.message.attachments) {
+                                    event.message.attachments.forEach(attachment => {
+                                        if (attachment.type === 'image') {
+                                            const imageUrl = attachment.payload.url;
+                                            console.log(`Görsel mesajı alındı: ${imageUrl}`);
+                                        }
+    
+                                        // Sesli mesaj
+                                        if (attachment.type === 'audio') {
+                                            const audioUrl = attachment.payload.url;
+                                            console.log(`Sesli mesaj alındı: ${audioUrl}`);
+                                        }
+                                    });
                                 }
-                            });
-                        }
+                            }
+                        });
+                    } else {
+                        console.log('No messaging events found for entry');
                     }
                 });
-            });
+            } else {
+                console.log('No entry found in request body');
+            }
     
             // Instagram'a başarılı olduğunu bildiriyoruz
             res.status(200).send('EVENT_RECEIVED');
@@ -443,7 +451,7 @@ module.exports = (app, wss) => {
             res.sendStatus(404);
         }
     });
-    
+   
 
     app.get('/instagram', (req, res) => {
         const VERIFY_TOKEN = process.env.INSTAGRAM_VERIFY_TOKEN;
@@ -513,7 +521,16 @@ module.exports = (app, wss) => {
     });
     
     
-
+    app.get('/messages', (req, res) => {
+        Message.find()
+            .then(messages => {
+                res.json(messages); // Mesajları JSON olarak döndür
+            })
+            .catch(err => {
+                console.error('Mesajlar alınamadı:', err);
+                res.status(500).send('Mesajlar alınamadı');
+            });
+    });
 
     app.get('/messages-instagram/:chatId', async (req, res) => {
         const { instagramId, accessToken } = req.query;
