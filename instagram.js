@@ -403,37 +403,68 @@ module.exports = (app, wss) => {
 
     app.post('/instagram', (req, res) => {
         const body = req.body;
-
+    
+        // Gelen webhook bildirimi
         if (body.object === 'instagram') {
             body.entry.forEach(entry => {
                 entry.messaging.forEach(event => {
                     if (event.message) {
-                        handleNewMessage(event);
+                        const senderId = event.sender.id;
+                        console.log(`Yeni mesaj alındı: Gönderen ID: ${senderId}`);
+    
+                        // Metin mesajı
+                        if (event.message.text) {
+                            const textMessage = event.message.text;
+                            console.log(`Metin mesajı: ${textMessage}`);
+                        }
+    
+                        // Görsel (fotoğraf) mesajı
+                        if (event.message.attachments) {
+                            event.message.attachments.forEach(attachment => {
+                                if (attachment.type === 'image') {
+                                    const imageUrl = attachment.payload.url;
+                                    console.log(`Görsel mesajı alındı: ${imageUrl}`);
+                                }
+    
+                                // Sesli mesaj
+                                if (attachment.type === 'audio') {
+                                    const audioUrl = attachment.payload.url;
+                                    console.log(`Sesli mesaj alındı: ${audioUrl}`);
+                                }
+                            });
+                        }
                     }
                 });
             });
+    
+            // Instagram'a başarılı olduğunu bildiriyoruz
             res.status(200).send('EVENT_RECEIVED');
         } else {
             res.sendStatus(404);
         }
     });
+    
 
     app.get('/instagram', (req, res) => {
         const VERIFY_TOKEN = process.env.INSTAGRAM_VERIFY_TOKEN;
-
+    
         const mode = req.query['hub.mode'];
         const token = req.query['hub.verify_token'];
         const challenge = req.query['hub.challenge'];
-
+    
         if (mode && token) {
             if (mode === 'subscribe' && token === VERIFY_TOKEN) {
                 console.log('Webhook doğrulandı');
+                console.log('Challenge Kodu:', challenge);  // Challenge kodunu logla
                 res.status(200).send(challenge);
             } else {
                 res.sendStatus(403);
             }
+        } else {
+            res.sendStatus(400);  // Eğer mode veya token yoksa 400 hatası döndür
         }
     });
+    
 
     app.get('/contacts-instagram', async (req, res) => {
         const { instagramId, accessToken } = req.query;
