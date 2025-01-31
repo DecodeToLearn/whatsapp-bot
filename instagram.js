@@ -400,6 +400,8 @@ module.exports = (app, wss) => {
             console.error('❌ Mesaj gönderilemedi:', error);
         }
     }
+
+    
     app.post('/instagram', (req, res) => {
         const body = req.body;
     
@@ -409,14 +411,14 @@ module.exports = (app, wss) => {
                 const senderId = body.value.sender.id;
                 console.log(`Yeni mesaj alındı: Gönderen ID: ${senderId}`);
     
-                // Metin mesajı
+                // Metin mesajı kontrolü
                 if (body.value.message && body.value.message.text) {
                     const textMessage = body.value.message.text;
                     console.log(`Metin mesajı: ${textMessage}`);
                 }
     
-                // Görsel (fotoğraf) mesajı
-                if (body.value.message && body.value.message.attachments) {
+                // Eğer mesajda görsel (attachment) varsa kontrol et
+                if (body.value.message.attachments) {
                     body.value.message.attachments.forEach(attachment => {
                         if (attachment.type === 'image') {
                             const imageUrl = attachment.payload.url;
@@ -439,7 +441,8 @@ module.exports = (app, wss) => {
         } else {
             res.sendStatus(404);
         }
-    });    
+    });
+    
    
 
     app.get('/instagram', (req, res) => {
