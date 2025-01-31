@@ -400,49 +400,38 @@ module.exports = (app, wss) => {
             console.error('❌ Mesaj gönderilemedi:', error);
         }
     }
-
     app.post('/instagram', (req, res) => {
         const body = req.body;
     
         // Gelen webhook bildirimi
-        if (body.object === 'instagram') {
-            if (body.entry && Array.isArray(body.entry)) {
-                body.entry.forEach(entry => {
-                    if (entry.messaging && Array.isArray(entry.messaging)) {
-                        entry.messaging.forEach(event => {
-                            if (event.message) {
-                                const senderId = event.sender.id;
-                                console.log(`Yeni mesaj alındı: Gönderen ID: ${senderId}`);
+        if (body.field === 'messages') {
+            if (body.value) {
+                const senderId = body.value.sender.id;
+                console.log(`Yeni mesaj alındı: Gönderen ID: ${senderId}`);
     
-                                // Metin mesajı
-                                if (event.message.text) {
-                                    const textMessage = event.message.text;
-                                    console.log(`Metin mesajı: ${textMessage}`);
-                                }
+                // Metin mesajı
+                if (body.value.message && body.value.message.text) {
+                    const textMessage = body.value.message.text;
+                    console.log(`Metin mesajı: ${textMessage}`);
+                }
     
-                                // Görsel (fotoğraf) mesajı
-                                if (event.message.attachments) {
-                                    event.message.attachments.forEach(attachment => {
-                                        if (attachment.type === 'image') {
-                                            const imageUrl = attachment.payload.url;
-                                            console.log(`Görsel mesajı alındı: ${imageUrl}`);
-                                        }
+                // Görsel (fotoğraf) mesajı
+                if (body.value.message && body.value.message.attachments) {
+                    body.value.message.attachments.forEach(attachment => {
+                        if (attachment.type === 'image') {
+                            const imageUrl = attachment.payload.url;
+                            console.log(`Görsel mesajı alındı: ${imageUrl}`);
+                        }
     
-                                        // Sesli mesaj
-                                        if (attachment.type === 'audio') {
-                                            const audioUrl = attachment.payload.url;
-                                            console.log(`Sesli mesaj alındı: ${audioUrl}`);
-                                        }
-                                    });
-                                }
-                            }
-                        });
-                    } else {
-                        console.log('No messaging events found for entry');
-                    }
-                });
+                        // Sesli mesaj
+                        if (attachment.type === 'audio') {
+                            const audioUrl = attachment.payload.url;
+                            console.log(`Sesli mesaj alındı: ${audioUrl}`);
+                        }
+                    });
+                }
             } else {
-                console.log('No entry found in request body');
+                console.log('No value found in request body');
             }
     
             // Instagram'a başarılı olduğunu bildiriyoruz
@@ -450,7 +439,7 @@ module.exports = (app, wss) => {
         } else {
             res.sendStatus(404);
         }
-    });
+    });    
    
 
     app.get('/instagram', (req, res) => {
