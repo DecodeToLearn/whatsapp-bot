@@ -67,7 +67,7 @@ module.exports = (app, wss) => {
     async function checkUnreadMessages(userId) {
         const accessToken = clients[userId].accessToken;
         try {
-            const response = await axios.get(`https://graph.instagram.com/v21.0/me/messages?access_token=${accessToken}`);
+            const response = await axios.get(`https://graph.instagram.com/v22.0/me/messages?access_token=${accessToken}`);
             const messages = response.data.data;
 
             for (const message of messages) {
@@ -391,7 +391,7 @@ module.exports = (app, wss) => {
     async function sendMessage(instagramId, recipientId, message) {
         const accessToken = clients[instagramId].accessToken;
         try {
-            await axios.post(`https://graph.instagram.com/v21.0/me/messages?access_token=${accessToken}`, {
+            await axios.post(`https://graph.instagram.com/v22.0/me/messages?access_token=${accessToken}`, {
                 recipient: { id: recipientId },
                 message: { text: message }
             });
@@ -483,7 +483,7 @@ module.exports = (app, wss) => {
     
         try {
             // 📌 DM konuşmalarını çek
-            const response = await axios.get(`https://graph.instagram.com/v21.0/${instagramId}/conversations?fields=id,participants,message_count&access_token=${accessToken}`);
+            const response = await axios.get(`https://graph.instagram.com/v22.0/${instagramId}/conversations?fields=id,participants,message_count&access_token=${accessToken}`);
             const conversations = response.data.data || []; // Boş array döndürerek hatayı önle
     
             // 🔍 **Her katılımcı için profili al**
@@ -542,7 +542,7 @@ module.exports = (app, wss) => {
     
         try {
             // API çağrısı
-            const response = await axios.get(`https://graph.instagram.com/v21.0/${chatId}/messages?fields=id,message,from,created_time,attachments&access_token=${accessToken}`);
+            const response = await axios.get(`https://graph.instagram.com/v22.0/${chatId}/messages?fields=id,message,from,created_time,attachments&access_token=${accessToken}`);
             
             // Mesajları işle
             const messages = response.data.data.map(message => ({
