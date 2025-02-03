@@ -406,35 +406,81 @@ module.exports = (app, wss) => {
         const body = req.body;
     
         // Gelen webhook bildirimi
-        if (body.field === 'messages') {
-            if (body.value) {
-                const senderId = body.value.sender.id;
-                console.log(`Yeni mesaj alındı: Gönderen ID: ${senderId}`);
+        if (body.object === 'instagram') {
+            body.entry.forEach(entry => {
+                if (entry.messaging) {
+                    entry.messaging.forEach(event => {
+                        const senderId = event.sender && event.sender.id ? event.sender.id : 'Bilinmeyen Gönderen';
+                        console.log(`Yeni mesaj alındı: Gönderen ID: ${senderId}`);
     
-                // Metin mesajı kontrolü
-                if (body.value.message && body.value.message.text) {
-                    const textMessage = body.value.message.text;
-                    console.log(`Metin mesajı: ${textMessage}`);
-                }
-    
-                // Eğer mesajda görsel (attachment) varsa kontrol et
-                if (body.value.message.attachments) {
-                    body.value.message.attachments.forEach(attachment => {
-                        if (attachment.type === 'image') {
-                            const imageUrl = attachment.payload.url;
-                            console.log(`Görsel mesajı alındı: ${imageUrl}`);
+                        // Metin mesajını kontrol et
+                        if (event.message && event.message.text) {
+                            const textMessage = event.message.text;
+                            console.log(`Metin mesajı: ${textMessage}`);
                         }
     
-                        // Sesli mesaj
-                        if (attachment.type === 'audio') {
-                            const audioUrl = attachment.payload.url;
-                            console.log(`Sesli mesaj alındı: ${audioUrl}`);
+                        // Eğer mesajda attachment (medya) varsa kontrol et
+                        if (event.message && event.message.attachments) {
+                            event.message.attachments.forEach(attachment => {
+                                if (attachment.type === 'image') {
+                                    const imageUrl = attachment.payload.url;
+                                    console.log(`Görsel mesajı alındı: ${imageUrl}`);
+                                } else if (attachment.type === 'audio') {
+                                    const audioUrl = attachment.payload.url;
+                                    console.log(`Sesli mesaj alındı: ${audioUrl}`);
+                                } else if (attachment.type === 'video') {
+                                    const videoUrl = attachment.payload.url;
+                                    console.log(`Video mesajı alındı: ${videoUrl}`);
+                                } else if (attachment.type === 'file') {
+                                    const fileUrl = attachment.payload.url;
+                                    console.log(`Dosya alındı: ${fileUrl}`);
+                                } else {
+                                    console.log(`Desteklenmeyen medya türü: ${attachment.type}`);
+                                }
+                            });
+                        }
+    
+                        // Quick Reply kontrolü
+                        if (event.message && event.message.quick_reply) {
+                            const quickReplyPayload = event.message.quick_reply.payload;
+                            console.log(`Quick Reply seçildi: ${quickReplyPayload}`);
+                        }
+    
+                        // Reply to (yanıtlanan mesaj veya hikaye)
+                        if (event.message && event.message.reply_to) {
+                            if (event.message.reply_to.story) {
+                                const storyUrl = event.message.reply_to.story.url;
+                                console.log(`Hikayeye yanıt alındı: ${storyUrl}`);
+                            } else if (event.message.reply_to.mid) {
+                                const replyToMessageId = event.message.reply_to.mid;
+                                console.log(`Yanıtlanan mesaj ID'si: ${replyToMessageId}`);
+                            }
+                        }
+    
+                        // Reklam bilgisi kontrolü
+                        if (event.message && event.message.referral) {
+                            const adRef = event.message.referral.ref;
+                            const adId = event.message.referral.ad_id;
+                            console.log(`Reklamdan gelen mesaj. Reklam ID: ${adId}, Referans: ${adRef}`);
+                        }
+    
+                        // Echo (bot tarafından gönderilen mesaj)
+                        if (event.message && event.message.is_echo) {
+                            console.log('Echo (bot mesajı) alındı.');
+                        }
+    
+                        // Silinmiş mesaj kontrolü
+                        if (event.message && event.message.is_deleted) {
+                            console.log('Bir mesaj silindi.');
+                        }
+    
+                        // Desteklenmeyen mesaj kontrolü
+                        if (event.message && event.message.is_unsupported) {
+                            console.log('Desteklenmeyen bir mesaj alındı.');
                         }
                     });
                 }
-            } else {
-                console.log('No value found in request body');
-            }
+            });
     
             // Instagram'a başarılı olduğunu bildiriyoruz
             res.status(200).send('EVENT_RECEIVED');
