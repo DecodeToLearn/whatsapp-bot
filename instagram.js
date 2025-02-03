@@ -582,17 +582,46 @@ module.exports = (app, wss) => {
             // API çağrısı
             const response = await axios.get(`https://graph.instagram.com/v22.0/${chatId}/messages?fields=id,message,from,created_time,attachments&access_token=${accessToken}`);
             
-            // Mesajları işle
-            const messages = response.data.data.map(message => ({
+        // Mesajları işle
+        const messages = response.data.data.map(message => {
+            let type = "text"; // Varsayılan olarak metin mesajı
+            let content = message.message || "Mesaj içeriği yok";
+
+            // Eğer mesaj boşsa ve attachments yoksa, desteklenmeyen mesaj türü olarak işaretleyelim
+            if (!message.message && !message.attachments) {
+                type = "unsupported";
+                content = "Desteklenmeyen mesaj türü (muhtemelen ses mesajı).";
+            }
+
+            // Attachments'ları işle
+            const attachments = message.attachments ? message.attachments.data.map(attachment => {
+                if (attachment.image_data) {
+                    return {
+                        type: "image",
+                        url: attachment.image_data.url
+                    };
+                } else if (attachment.video_data) {
+                    return {
+                        type: "video",
+                        url: attachment.video_data.url
+                    };
+                } else {
+                    return {
+                        type: "unsupported",
+                        url: null
+                    };
+                }
+            }) : [];
+
+            return {
                 id: message.id,
                 username: message.from.username || "Bilinmeyen Kullanıcı",
-                text: message.message || "Mesaj içeriği yok",
+                text: content,
+                type: type,
                 createdTime: new Date(message.created_time).toLocaleString('tr-TR'),
-                attachments: message.attachments ? message.attachments.data.map(attachment => ({
-                    type: attachment.type, // Medya türü (ör: "image", "video", vb.)
-                    url: attachment.url // Medya URL'si
-                })) : []
-            }));
+                attachments: attachments
+            };
+        });
     
             res.json({ messages });
         } catch (error) {
