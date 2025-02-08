@@ -6,6 +6,8 @@ const axios = require('axios');
 const crypto = require('crypto');
 const ffmpeg = require('fluent-ffmpeg');
 const FormData = require('form-data');
+const { getImageEmbedding } = require('./image_embedding');
+const { callChatGPTAPI } = require('./callChatGPTAPI');
 const clients = {};
 module.exports = (app, wss) => {
 
@@ -359,7 +361,7 @@ app.get('/messages/:chatId', async (req, res) => {
 
         const questionsData = JSON.parse(fs.readFileSync(questionsFilePath, 'utf8'));
 
-        let text = msg.body;
+        let text = null;
         let imageUrl = null;
         let caption = null;
         console.log('Mesaj içeriği:', msg);
@@ -371,85 +373,22 @@ app.get('/messages/:chatId', async (req, res) => {
                 console.log('Mesaj türü: ptt (voice message).');
                 const media = await msg.downloadMedia();
                 const audioBuffer = Buffer.from(media.data, 'base64');
-                text = await transcribeAudio(audioBuffer);
-                console.log(`Sesli mesaj metne dönüştürüldü: ${text}`);
+                return await handleAudioMessage(audioBuffer, questionsData, apiKey);
             } else if (msg.type === 'image') {
                 console.log('Mesaj türü: image.');
                 const media = await msg.downloadMedia();
                 const filePath = await saveImageToFile(media, msg.id?._serialized, msg.timestamp);
-                console.log(`Resim dosyası: ${filePath}`);
                 if (!filePath) {
-                    console.error('Resim dosyası kaydedilemedi.');
-                    return null;
+                    return 'Resim işlenirken hata oluştu.';
                 }
-                imageUrl = filePath;
-                caption = msg.body;
+                return await handleImageMessage(filePath, msg.body, questionsData, apiKey);
             } else {
                 console.log(`Mesaj türü: ${msg.type}. Sesli mesaj veya resim değil.`);
             }
         } else {
-            console.log('Mesajda medya yok.');
-        }
-
-        if (imageUrl && caption) {
-            const reply = await handleImageWithCaption(imageUrl, caption, questionsData, apiKey);
-            if (reply) {
-                return reply;
+                // Metin mesajı
+                return await handleTextMessage(msg.body, questionsData, apiKey);
             }
-        }
-
-        const userQuestionEmbedding = await getEmbedding(text, apiKey);
-
-        let bestMatch = null;
-        let highestSimilarity = 0;
-
-        const embeddingPromises = Object.entries(questionsData).map(async ([question, answer]) => {
-            const questionEmbedding = await getEmbedding(question, apiKey);
-            const similarity = cosineSimilarity(userQuestionEmbedding, questionEmbedding);
-
-            if (similarity > highestSimilarity) {
-                highestSimilarity = similarity;
-                bestMatch = { question, answer };
-            }
-        });
-        await Promise.all(embeddingPromises);
-
-        if (highestSimilarity >= 0.8) {
-            console.log(`En benzer soru bulundu: ${bestMatch.question} (${highestSimilarity})`);
-            return bestMatch.answer;
-        }
-
-        const apiUrl = 'https://api.openai.com/v1/chat/completions';
-        const headers = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-        };
-
-        const promptText = "Sana gelen mesaj da eğer resim varsa resimi analiz et ve mesajın metnini oku doğru bir cevap yaz eğer cevabından emin değilsen bu metini gelen mesajın dilin de yaz\n\n1. Sizin için satış temsilcimiz en kısa sürede bilgi verecek";
-        const data = {
-            model: "gpt-4o-2024-08-06",
-            messages: [
-                {
-                    role: "user",
-                    content: promptText
-                },
-                {
-                    role: "user",
-                    content: text
-                }
-            ],
-            max_tokens: 1600,
-            temperature: 0.7
-        };
-        try {
-            console.log('ChatGPT API isteği gönderiliyor:', data);
-            const response = await axios.post(apiUrl, data, { headers });
-            console.log('ChatGPT API yanıtı alındı:', response.data);
-            const reply = response.data.choices[0].message.content.trim();
-            return reply;
-        } catch (error) {
-            console.error('ChatGPT API hatası:', error);
-            return null;
         }
     }
 
@@ -548,6 +487,11 @@ app.get('/messages/:chatId', async (req, res) => {
     }
 
     async function getEmbedding(text, apiKey) {
+        if (!text || text.trim().length === 0) {
+            console.error('Boş metin ile getEmbedding çağrıldı.');
+            return null;
+        }
+    
         const apiUrl = 'https://api.openai.com/v1/embeddings';
         const headers = {
             'Content-Type': 'application/json',
@@ -557,87 +501,256 @@ app.get('/messages/:chatId', async (req, res) => {
             model: "text-embedding-ada-002",
             input: text
         };
-
+    
         try {
             const response = await axios.post(apiUrl, data, { headers });
-            return response.data.data[0].embedding;
+            if (response?.data?.data?.[0]?.embedding) {
+                return response.data.data[0].embedding;
+            } else {
+                console.error('Embedding API geçerli bir yanıt döndürmedi.');
+                return null;
+            }
         } catch (error) {
-            console.error('Embedding API hatası:', error);
+            console.error('Embedding API hatası:', error.message);
             return null;
         }
     }
-
+    
     function cosineSimilarity(vec1, vec2) {
+        if (!vec1 || !vec2 || vec1.length !== vec2.length) {
+            console.error('Vektörler geçersiz veya farklı uzunlukta.');
+            return null;
+        }
+    
         const dotProduct = vec1.reduce((sum, val, i) => sum + val * vec2[i], 0);
         const magnitude1 = Math.sqrt(vec1.reduce((sum, val) => sum + val * val, 0));
         const magnitude2 = Math.sqrt(vec2.reduce((sum, val) => sum + val * val, 0));
+    
+        if (magnitude1 === 0 || magnitude2 === 0) {
+            console.error('Vektörlerden biri sıfır büyüklüğüne sahip.');
+            return null;
+        }
+    
         return dotProduct / (magnitude1 * magnitude2);
     }
 
-
-    async function handleImageWithCaption(imageUrl, caption, questionsData, apiKey) {
-    /* const userQuestionEmbedding = await getEmbedding(caption, apiKey);
-
-        // JSON'daki soruların embedding'lerini oluştur ve en benzerini bul
-        let bestMatch = null;
-        let highestSimilarity = 0;
-
-        const embeddingPromises = Object.entries(questionsData).map(async ([question, answer]) => {
-            const questionEmbedding = await getEmbedding(question, apiKey);
-            const similarity = cosineSimilarity(userQuestionEmbedding, questionEmbedding);
-
-            if (similarity > highestSimilarity) {
-                highestSimilarity = similarity;
-                bestMatch = { question, answer };
-            }
-        });
-
-        await Promise.all(embeddingPromises);
-
-        // Eğer benzerlik skoru eşik değerin üzerinde ise JSON'daki cevabı döndür
-        if (highestSimilarity >= 0.8) {
-            console.log(`En benzer soru bulundu: ${bestMatch.question} (${highestSimilarity})`);
-            return bestMatch.answer;
-        }
-    */
-        // Eğer eşleşme bulunmazsa ChatGPT API çağrısı yap
-        const messages = [
-            { role: 'system', content: 'Analyze the following images.' },
-            {
-                role: "user",
-                content: [
-                    { type: "text", text: caption },
-                    {
-                        type: "image_url",
-                        image_url: {
-                            "url": imageUrl, // URL'yi kullan
-                        },
-                    },
-                ],
-            },
-        ];
-
+    async function translateText(text, targetLanguage) {
+        const apiKey = process.env.OPENAI_API_KEY;
+    
         const apiUrl = 'https://api.openai.com/v1/chat/completions';
         const headers = {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`
         };
-
+    
         const data = {
-            model: "gpt-4o-mini", // use model that can do vision
-            messages: messages,
+            model: 'gpt-4',
+            messages: [
+                {
+                    role: 'system',
+                    content: `Çeviriyi yaparken, her dildeki mesajı hedef dil olan ${targetLanguage} diline çevir.`
+                },
+                {
+                    role: 'user',
+                    content: text
+                }
+            ]
         };
-
+    
         try {
-            console.log('ChatGPT API isteği gönderiliyor:', data);
             const response = await axios.post(apiUrl, data, { headers });
-            console.log('ChatGPT API yanıtı alındı:', response.data);
-            const reply = response.data.choices[0].message.content.trim();
-            return reply;
+            const translation = response.data.choices[0].message.content.trim();
+            return translation;
         } catch (error) {
-            console.error('ChatGPT API hatası:', error);
-            return null;
+            console.error('Çeviri API hatası:', error.response?.data || error.message);
+            return text; // Hata olursa orijinal metni döndür
         }
     }
-};
+
+    async function detectLanguage(text) {
+        const apiKey = process.env.OPENAI_API_KEY;
+    
+        const apiUrl = 'https://api.openai.com/v1/chat/completions';
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+        };
+    
+        const data = {
+            model: 'gpt-4',
+            messages: [
+                {
+                    role: 'system',
+                    content: 'Bu metni analiz et ve dilini algıla. Sadece dil kodunu döndür (ör: "tr", "en").'
+                },
+                {
+                    role: 'user',
+                    content: text
+                }
+            ]
+        };
+    
+        try {
+            const response = await axios.post(apiUrl, data, { headers });
+            return response.data.choices[0].message.content.trim();
+        } catch (error) {
+            console.error('Dil algılama hatası:', error.message);
+            return 'unknown';
+        }
+    }
+    
+    async function handleImageMessage(imageUrl, caption, questionsData, apiKey) {
+        const userLanguage = await detectLanguage(caption); // Caption dilini algıla
+        const translatedCaption = await translateText(caption, 'tr'); // Türkçe'ye çevir
+    
+        const keywords = ['fiyat', 'beden', 'renk', 'kumaş', 'içerik', 'boy', 'kalıp'];
+        const containsKeywords = keywords.some(keyword => translatedCaption.toLowerCase().includes(keyword));
+    
+        if (containsKeywords) {
+            console.log('Ürün bilgisi sorgulanıyor, embedding işlemine yönlendiriliyor...');
+            const imageEmbedding = await getImageEmbedding(imageUrl);
+            const product = await findProductByEmbedding(imageEmbedding);
+    
+            if (product) {
+                const response = `Ürün Bilgisi:\nAd: ${product.name}\nFiyat: ${product.price}\nBeden: ${product.size}\nRenk: ${product.color}`;
+                return await translateText(response, userLanguage); // Kullanıcının diline çevir ve döndür
+            }
+    
+            return await translateText('Ürün bulunamadı.', userLanguage);
+        }
+    
+            // Eğer anahtar kelime yoksa question.json dosyasını kontrol et
+        let bestMatch = null;
+        let highestSimilarity = 0;
+
+        try {
+            const userEmbedding = await getEmbedding(translatedCaption, apiKey); // Kullanıcı caption'ı embedding
+            if (!userEmbedding) {
+                console.error('Kullanıcı embedding alınamadı.');
+                return await translateText('Bir hata oluştu, lütfen tekrar deneyin.', userLanguage);
+            }
+
+            // Question.json içeriğiyle benzerlik analizi
+            for (const [question, answer] of Object.entries(questionsData)) {
+                const questionEmbedding = await getEmbedding(question, apiKey);
+                if (!questionEmbedding) {
+                    console.error(`Soru için embedding alınamadı: ${question}`);
+                    continue;
+                }
+
+                const similarity = cosineSimilarity(userEmbedding, questionEmbedding);
+                if (similarity > highestSimilarity) {
+                    highestSimilarity = similarity;
+                    bestMatch = { question, answer };
+                }
+            }
+
+            // Eğer eşleşme varsa cevap döndür
+            if (highestSimilarity >= 0.8) {
+                console.log(`En uygun cevap bulundu: ${bestMatch.question} (${highestSimilarity})`);
+                const translatedResponse = await translateText(bestMatch.answer, userLanguage);
+                return translatedResponse;
+            }
+
+        } catch (error) {
+            console.error('Soru eşleştirme sırasında hata oluştu:', error);
+        }
+
+        // Eğer hiçbir eşleşme bulunamazsa ChatGPT API'ye yönlendir
+        console.log('Benzer soru bulunamadı, ChatGPT API çağrılıyor...');
+        // JSON'dan cevap bulunamazsa ChatGPT API'ye yönlendir
+        return await callChatGPTAPI(translatedCaption, userLanguage, apiKey);
+    }
+
+    async function handleAudioMessage(audioBuffer, questionsData, apiKey) {
+        try {
+            // 1. Ses metne dönüştürülüyor
+            const transcribedText = await transcribeAudio(audioBuffer); 
+            if (!transcribedText) {
+                console.error('Ses metne dönüştürülemedi.');
+                return 'Ses metne dönüştürülürken bir hata oluştu.';
+            }
+    
+            // 2. Dil algılama
+            const userLanguage = await detectLanguage(transcribedText); 
+            const translatedText = await translateText(transcribedText, 'tr'); // Türkçe'ye çevir
+    
+            let bestMatch = null;
+            let highestSimilarity = 0;
+    
+            // 3. Benzerlik analizi için embedding'ler hazırlanıyor
+            const userEmbedding = await getEmbedding(translatedText, apiKey);
+            if (!userEmbedding) {
+                console.error('Kullanıcı metni embedding alınamadı.');
+                return 'Bir hata oluştu, lütfen tekrar deneyin.';
+            }
+    
+            for (const [question, answer] of Object.entries(questionsData)) {
+                const questionEmbedding = await getEmbedding(question, apiKey);
+                if (!questionEmbedding) {
+                    console.error(`Soru için embedding alınamadı: ${question}`);
+                    continue;
+                }
+    
+                const similarity = cosineSimilarity(userEmbedding, questionEmbedding);
+                if (similarity > highestSimilarity) {
+                    highestSimilarity = similarity;
+                    bestMatch = { question, answer };
+                }
+            }
+    
+            // 4. En yüksek benzerlik eşik değeri ile karşılaştırılıyor
+            if (highestSimilarity >= 0.8 && bestMatch) {
+                console.log(`En uygun cevap bulundu: ${bestMatch.question} (${highestSimilarity})`);
+                const translatedResponse = await translateText(bestMatch.answer, userLanguage); // Cevabı kullanıcı diline çevir
+                return translatedResponse;
+            }
+    
+            // 5. JSON'dan cevap bulunamazsa ChatGPT API'ye yönlendirilir
+            console.log('Benzer soru bulunamadı, ChatGPT API çağrılıyor...');
+            return await callChatGPTAPI(transcribedText, userLanguage, apiKey);
+        } catch (error) {
+            console.error('handleAudioMessage sırasında hata oluştu:', error);
+            return 'Bir hata oluştu, lütfen tekrar deneyin.';
+        }
+    }
+    async function handleTextMessage(msg, questionsData, apiKey) {
+        const userLanguage = await detectLanguage(msg.body); // Mesajın dilini algıla
+        const translatedText = await translateText(msg.body, 'tr'); // Türkçe'ye çevir
+        const userEmbedding = await getEmbedding(translatedText, apiKey);
+        if (!userEmbedding) {
+            console.error("Kullanıcı embedding'i alınamadı.");
+            return "Bir hata oluştu. Lütfen tekrar deneyin.";
+        }
+        let bestMatch = null;
+        let highestSimilarity = 0;
+        const similarityThreshold = 0.8; // Benzerlik için eşik değeri
+    
+        // Soruların embedding'lerini oluştur ve en iyi eşleşmeyi bul
+        for (const [question, answer] of Object.entries(questionsData)) {
+            const questionEmbedding = await getEmbedding(question, apiKey);
+            if (!questionEmbedding) {
+                console.error(`Soru embedding'i alınamadı: ${question}`);
+                continue;
+            }
+    
+            // Cosine similarity hesapla
+            const similarity = cosineSimilarity(userEmbedding, questionEmbedding);
+            if (similarity > highestSimilarity) {
+                highestSimilarity = similarity;
+                bestMatch = { question, answer };
+            }
+        }
+    
+        // Eşik değer kontrolü
+        if (highestSimilarity >= similarityThreshold) {
+            const translatedResponse = await translateText(bestMatch.answer, userLanguage);
+            console.log(`En uygun cevap bulundu: "${bestMatch.question}" (${highestSimilarity})`);
+            return translatedResponse; // Kullanıcının diline çevrilmiş cevap
+        }
+    
+        // JSON'dan cevap bulunamazsa ChatGPT API'ye yönlendir
+        return await callChatGPTAPI(msg.body, userLanguage, apiKey);
+    }
+    
 module.exports.clients = clients;
