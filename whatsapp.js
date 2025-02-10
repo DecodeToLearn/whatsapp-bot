@@ -87,6 +87,7 @@ module.exports = (app, wss) => {
 app.get('/contacts', async (req, res) => {
     try {
         const activeClient = Object.values(clients)[0];
+        console.log(`${activeClient} WhatsApp botu hazır.`);
         if (!activeClient) {
             return res.status(404).json({ error: 'Aktif bir WhatsApp oturumu yok.' });
         }
@@ -365,8 +366,7 @@ app.get('/messages/:chatId', async (req, res) => {
         let text = null;
         let imageUrl = null;
         let caption = null;
-        console.log('Mesaj içeriği:', msg);
-
+        console.log('Mesaj içeriği:', msg.body);
         if (msg.hasMedia) {
             console.log('Mesajda medya var.');
             console.log('Mesaj türü:', msg.type);
