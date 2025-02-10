@@ -86,18 +86,17 @@ module.exports = (app, wss) => {
 // Kontakları döndüren endpoint
 app.get('/contacts', async (req, res) => {
     try {
-
-        if (!clients || Object.keys(clients).length === 0) {
-            return res.status(404).json({ error: 'Aktif bir WhatsApp oturumu yok.' });
+        const { userId } = req.query;
+        if (!userId) {
+            return res.status(400).json({ error: 'User ID gereklidir.' });
+        }
+        const client = clients[userId];
+        if (!client) {
+            return res.status(404).json({ error: 'Kullanıcı kayıtlı değil.' });
         }
         
-        const activeClient = Object.values(clients)[0];
-        console.log(`${activeClient} WhatsApp botu hazır.`);
-        if (!activeClient) {
-            return res.status(404).json({ error: 'Aktif bir WhatsApp oturumu yok.' });
-        }
 
-        const contacts = await activeClient.getContacts();
+        const contacts = await client.getContacts();
         const formattedContacts = contacts.map(contact => ({
             id: contact.id._serialized,
             name: contact.name || contact.pushname || contact.id.user,
