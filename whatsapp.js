@@ -56,7 +56,7 @@ module.exports = (app, wss) => {
         });
 
         client.on('ready', async () => {
-            console.log(`${userId} WhatsApp botu hazır.`);
+            console.log(`${userId} WhatsApp botu hazır. ready`);
             delete qrCodes[userId]; // QR kodunu temizle
             try {
                 const contacts = (await client.getContacts()).map(contact => ({
