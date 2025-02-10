@@ -13,7 +13,7 @@ async function callChatGPTAPI(messages, apiKey) {
     };
 
     const data = {
-        model: 'gpt-4', // Modeli uygun şekilde belirleyin
+        model: 'gpt-4o-2024-08-06', // Modeli uygun şekilde belirleyin
         messages: messages,
         max_tokens: 1000,
         temperature: 0.7,

@@ -365,7 +365,12 @@ module.exports = (app, wss) => {
 
         try {
             const response = await axios.post(apiUrl, data, { headers });
-            return response.data.data[0].embedding;
+            if (response?.data?.data?.[0]?.embedding) {
+                return response.data.data[0].embedding;
+            } else {
+                console.error('Embedding API geçerli bir yanıt döndürmedi.');
+                return null;
+            }
         } catch (error) {
             console.error('Embedding API hatası:', error);
             return null;

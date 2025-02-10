@@ -536,6 +536,10 @@ app.get('/messages/:chatId', async (req, res) => {
     }
 
     async function translateText(text, targetLanguage) {
+        if (!text || text.trim() === '') {
+            console.error('Çeviri için boş bir metin gönderildi.');
+            return text; // Boş metni döndür
+        }
         const apiKey = process.env.OPENAI_API_KEY;
     
         const apiUrl = 'https://api.openai.com/v1/chat/completions';
@@ -545,7 +549,7 @@ app.get('/messages/:chatId', async (req, res) => {
         };
     
         const data = {
-            model: 'gpt-4',
+            model: 'gpt-4o-2024-08-06',
             messages: [
                 {
                     role: 'system',
@@ -569,6 +573,10 @@ app.get('/messages/:chatId', async (req, res) => {
     }
 
     async function detectLanguage(text) {
+        if (!text || text.trim() === '') {
+            console.error('Çeviri için boş bir metin gönderildi.');
+            return text; // Boş metni döndür
+        }
         const apiKey = process.env.OPENAI_API_KEY;
     
         const apiUrl = 'https://api.openai.com/v1/chat/completions';
@@ -578,7 +586,7 @@ app.get('/messages/:chatId', async (req, res) => {
         };
     
         const data = {
-            model: 'gpt-4',
+            model: 'gpt-4o-2024-08-06',
             messages: [
                 {
                     role: 'system',
