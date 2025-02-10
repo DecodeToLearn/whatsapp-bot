@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const ffmpeg = require('fluent-ffmpeg');
 const FormData = require('form-data');
 const { getImageEmbedding } = require('./image_embedding');
+const findProductByEmbedding = require('./find_embedding_product');
 const { callChatGPTAPI } = require('./callChatGPTAPI');
 const clients = {};
 module.exports = (app, wss) => {
@@ -609,7 +610,7 @@ app.get('/messages/:chatId', async (req, res) => {
         if (containsKeywords) {
             console.log('Ürün bilgisi sorgulanıyor, embedding işlemine yönlendiriliyor...');
             const imageEmbedding = await getImageEmbedding(imageUrl);
-            const product = await findProductByEmbedding(imageEmbedding);
+            const product = await findProductByEmbedding(imageEmbedding, userLanguage);
     
             if (product) {
                 const response = `Ürün Bilgisi:\nAd: ${product.name}\nFiyat: ${product.price}\nBeden: ${product.size}\nRenk: ${product.color}`;
