@@ -8,7 +8,7 @@ const app = express();
 const axios = require('axios');
 
 const { clientsInsta } = require('./instagram'); 
-
+const { clients } = require('./whatsapp');
 app.use('/media', express.static(path.join(__dirname, 'media')));
 const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
