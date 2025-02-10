@@ -86,6 +86,11 @@ module.exports = (app, wss) => {
 // Kontakları döndüren endpoint
 app.get('/contacts', async (req, res) => {
     try {
+
+        if (!clients || Object.keys(clients).length === 0) {
+            return res.status(404).json({ error: 'Aktif bir WhatsApp oturumu yok.' });
+        }
+        
         const activeClient = Object.values(clients)[0];
         console.log(`${activeClient} WhatsApp botu hazır.`);
         if (!activeClient) {
