@@ -35,6 +35,7 @@ require('./telegram')(app, wss);
 // Kullanıcı bağlantı durumunu kontrol eden endpoint
 app.get('/check-user/:userId', (req, res) => {
     const { userId } = req.params;
+    console.log(`Kullanıcı ${userId}`);
     const isConnected = checkUserConnection(userId); // Bu fonksiyonu aşağıda tanımlayacağız
     console.log(`📢 Kullanıcı durumu: ${isConnected ? 'Bağlı' : 'Bağlı değil'}`);
     res.json({ connected: isConnected });
@@ -80,7 +81,7 @@ server.listen(PORT, () => {
 function checkUserConnection(userId) {
     // WhatsApp ve Telegram istemcilerini kontrol edin
     console.log(`✅ checkUserConnection çağrıldı: ${userId}`);
-    const whatsappClient = require('./whatsapp').clients[userId];
-    const telegramClient = require('./telegram').clients[userId];
-    return (whatsappClient && whatsappClient.info) || (telegramClient && telegramClient.connected);
+    const whatsappClient = clients[userId]; // Doğrudan module.exports.clients'e eriş
+    const telegramClient = clientsTelegram[userId]; 
+    return (whatsappClient?.connected) || (telegramClient?.connected);
 }
