@@ -14,18 +14,25 @@ module.exports = (app, wss) => {
 
     const qrCodes = {};
     const SESSION_DIR = './sessions';
-    let isInitialCheckDone = false;
+
 
     if (!fs.existsSync(SESSION_DIR)) {
         fs.mkdirSync(SESSION_DIR);
     }
+    app.get('/check-user/:userId', async (req, res) => {
+        const { userId } = req.params;
+    
+        if (clients[userId]) {
+            res.json({ connected: true });
+        } else {
+            res.json({ connected: false });
+        }
+    });
+
+    let isInitialCheckDone = false;
+
     // WhatsApp işlevleri burada olacak
     function createClient(userId) {
-        if (clients[userId]) {
-            console.log(`✅ ${userId} zaten bağlı.`);
-            return clients[userId];
-        }
-        console.log(`✅ ${userId} zaten bağlı2.`);
         const client = new Client({
             authStrategy: new LocalAuth({
                 clientId: userId,
@@ -60,7 +67,7 @@ module.exports = (app, wss) => {
         });
 
         client.on('ready', async () => {
-            console.log(`${userId} WhatsApp botu hazır. ready`);
+            console.log(`${userId} WhatsApp botu hazır.`);
             delete qrCodes[userId]; // QR kodunu temizle
             try {
                 const contacts = (await client.getContacts()).map(contact => ({
@@ -88,37 +95,25 @@ module.exports = (app, wss) => {
             }
         });
 // Kontakları döndüren endpoint
-app.get('/contacts/:userId', async (req, res) => {
-    try {
-        const { userId } = req.params;
+    app.get('/contacts', async (req, res) => {
+        try {
+            const activeClient = Object.values(clients)[0];
+            if (!activeClient) {
+                return res.status(404).json({ error: 'Aktif bir WhatsApp oturumu yok.' });
+            }
 
-        if (!userId) {
-            return res.status(400).json({ error: 'User ID gereklidir.' });
+            const contacts = await activeClient.getContacts();
+            const formattedContacts = contacts.map(contact => ({
+                id: contact.id._serialized,
+                name: contact.name || contact.pushname || contact.id.user,
+            }));
+
+            res.status(200).json({ contacts: formattedContacts });
+        } catch (error) {
+            console.error('Kontaklar alınırken hata:', error);
+            res.status(500).json({ error: 'Kontaklar alınırken hata oluştu.' });
         }
-
-        if (!clients[userId]) {
-            return res.status(404).json({ error: 'User not registered.' });
-        }
-
-        const client = clients[userId];
-
-        console.log(`✅ Kullanıcı ${userId} için client bulundu.`);
-
-        const contacts = await client.getContacts();
-        const formattedContacts = contacts.map(contact => ({
-            id: contact.id._serialized,
-            name: contact.name || contact.pushname || contact.id.user,
-        }));
-
-        console.log(`📢 ${contacts.length} kişi alındı.`);
-        res.status(200).json({ contacts: formattedContacts });
-
-    } catch (error) {
-        console.error('Kontaklar alınırken hata:', error);
-        res.status(500).json({ error: 'Kontaklar alınırken hata oluştu.' });
-    }
-});
-
+    });
 
 const saveMediaToFile = async (media, msgId, timestamp) => {
     if (!media || !media.mimetype || !media.data) {
@@ -231,7 +226,6 @@ app.get('/messages/:chatId', async (req, res) => {
 
         client.initialize();
         clients[userId] = client;
-        return client;
     }
 
     app.post('/register', (req, res) => {
@@ -246,7 +240,6 @@ app.get('/messages/:chatId', async (req, res) => {
         }
 
         createClient(userId);
-        console.log(`🟢 Kullanıcı ${userId} için yeni istemci başlatıldı.`);
         res.json({ status: 'registered' });
     });
 
@@ -383,7 +376,8 @@ app.get('/messages/:chatId', async (req, res) => {
         let text = null;
         let imageUrl = null;
         let caption = null;
-        console.log('Mesaj içeriği:', msg.body);
+        console.log('Mesaj içeriği:', msg);
+
         if (msg.hasMedia) {
             console.log('Mesajda medya var.');
             console.log('Mesaj türü:', msg.type);
@@ -779,4 +773,4 @@ app.get('/messages/:chatId', async (req, res) => {
         return await callChatGPTAPI(msg.body, userLanguage, apiKey);
     }
     
-    module.exports = { clients };
+module.exports.clients = clients;

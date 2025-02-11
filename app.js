@@ -8,10 +8,8 @@ const app = express();
 const axios = require('axios');
 
 const { clientsInsta } = require('./instagram'); 
-const { clients } = require('./whatsapp');
-const { clientsTelegram } = require('./telegram');
-app.use('/media', express.static(path.join(__dirname, 'media')));
 
+app.use('/media', express.static(path.join(__dirname, 'media')));
 const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
 
@@ -23,32 +21,22 @@ const corsOptions = {
     preflightContinue: false,
     optionsSuccessStatus: 204,
 };
+
 app.use(cors(corsOptions));
 app.use(bodyParser.json());
 
-
 // WhatsApp ve Telegram modüllerini içe aktarın
-//require('./whatsapp')(app, wss);
-//require('./telegram')(app, wss);
-//require('./instagram')(app, wss);
-
+require('./whatsapp')(app, wss);
+require('./telegram')(app, wss);
+require('./instagram')(app, wss);
 // Kullanıcı bağlantı durumunu kontrol eden endpoint
-app.get('/check-user/:userId', (req, res) => {
+/*app.get('/check-user/:userId', (req, res) => {
     const { userId } = req.params;
-    console.log(`📌 Kullanıcı kontrol ediliyor: ${userId}`);
-
-    if (!clients[userId]) {
-        console.log(`🔴 Kullanıcı ${userId} bağlı değil, istemci başlatılıyor...`);
-       // createClient(userId); // Eğer istemci yoksa başlat
-        return res.status(202).json({ connected: false, message: 'İstemci başlatılıyor, lütfen tekrar deneyin.' });
-    }
-
     const isConnected = checkUserConnection(userId);
-    console.log(`📢 Kullanıcı durumu: ${isConnected ? 'Bağlı' : 'Bağlı değil'}`);
 
     res.json({ connected: isConnected });
 });
-
+*/
 app.get('/check-user-instagram/:instagramId', async (req, res) => {
     const { instagramId } = req.params;
     let accessToken = req.headers.authorization ? req.headers.authorization.replace('Bearer ', '') : null;
@@ -86,25 +74,11 @@ server.listen(PORT, () => {
     console.log(`Sunucu çalışıyor: http://localhost:${PORT}`);
 });
 // Kullanıcı bağlantı durumunu kontrol eden fonksiyon
-
+/*
 function checkUserConnection(userId) {
-    console.log(`✅ checkUserConnection çağrıldı: ${userId}`);
+    // WhatsApp ve Telegram istemcilerini kontrol edin
+    const whatsappClient = require('./whatsapp').clients[userId];
+    const telegramClient = require('./telegram').clients[userId];
 
-    // clients nesnesinde kullanıcı var mı kontrol et
-    if (!clients || !clients[userId]) {
-        console.log(`🔴 Kullanıcı ${userId} için istemci bulunamadı.`);
-        return false;
-    }
-
-    const whatsappClient = clients[userId];
-    const telegramClient = clientsTelegram[userId];
-
-    // WhatsApp veya Telegram bağlantısı varsa true döndür
-    if (whatsappClient?.info || telegramClient?.connected) {
-        console.log(`🟢 Kullanıcı ${userId} bağlı.`);
-        return true;
-    }
-
-    console.log(`🔴 Kullanıcı ${userId} bağlı değil.`);
-    return false;
-}
+    return (whatsappClient && whatsappClient.info) || (telegramClient && telegramClient.connected);
+}*/
