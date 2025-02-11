@@ -30,7 +30,7 @@ app.use(bodyParser.json());
 // WhatsApp ve Telegram modüllerini içe aktarın
 require('./whatsapp')(app, wss);
 require('./telegram')(app, wss);
-require('./instagram')(app, wss);
+//require('./instagram')(app, wss);
 
 // Kullanıcı bağlantı durumunu kontrol eden endpoint
 app.get('/check-user/:userId', (req, res) => {
@@ -82,6 +82,5 @@ function checkUserConnection(userId) {
     console.log(`✅ checkUserConnection çağrıldı: ${userId}`);
     const whatsappClient = require('./whatsapp').clients[userId];
     const telegramClient = require('./telegram').clients[userId];
-    
     return (whatsappClient && whatsappClient.info) || (telegramClient && telegramClient.connected);
 }
