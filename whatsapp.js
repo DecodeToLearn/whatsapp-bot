@@ -75,6 +75,8 @@ module.exports = (app, wss) => {
                     id: contact.id._serialized,
                     name: contact.name || contact.pushname || contact.id.user,
                 }));
+                const activeClient = Object.values(clients)[0];
+                console.log('Aktif client:', activeClient); // Log ekleyelim
                 // Okunmamış mesajları kontrol et
                 broadcast({ type: 'contacts', contacts, userId });
                 checkUnreadMessages(client);
@@ -98,6 +100,7 @@ module.exports = (app, wss) => {
 // Kontakları döndüren endpoint
     app.get('/contacts', async (req, res) => {
         console.log('/contacts endpoint çağrıldı'); // Log ekleyelim
+        
         try {
             const activeClient = Object.values(clients)[0];
             if (!activeClient) {
