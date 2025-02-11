@@ -7,18 +7,13 @@ const path = require('path');
 const app = express();
 const axios = require('axios');
 
-
-
+const { clientsInsta } = require('./instagram'); 
+const { clients } = require('./whatsapp');
+const { clientsTelegram } = require('./telegram');
+app.use('/media', express.static(path.join(__dirname, 'media')));
 
 const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
-
-const { clientsInsta } = require('./instagram'); 
-const { clients, createClient, checkUserConnection } = require('./whatsapp');
-const { clientsTelegram } = require('./telegram');
-app.use('/media', express.static(path.join(__dirname, 'media')));
-app.use(cors(corsOptions));
-app.use(bodyParser.json());
 
 const corsOptions = {
     origin: '*',
@@ -28,7 +23,8 @@ const corsOptions = {
     preflightContinue: false,
     optionsSuccessStatus: 204,
 };
-
+app.use(cors(corsOptions));
+app.use(bodyParser.json());
 
 
 // WhatsApp ve Telegram modüllerini içe aktarın
@@ -90,7 +86,7 @@ server.listen(PORT, () => {
     console.log(`Sunucu çalışıyor: http://localhost:${PORT}`);
 });
 // Kullanıcı bağlantı durumunu kontrol eden fonksiyon
-/*
+
 function checkUserConnection(userId) {
     console.log(`✅ checkUserConnection çağrıldı: ${userId}`);
 
@@ -111,4 +107,4 @@ function checkUserConnection(userId) {
 
     console.log(`🔴 Kullanıcı ${userId} bağlı değil.`);
     return false;
-}*/
+}
