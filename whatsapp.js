@@ -84,17 +84,21 @@ module.exports = (app, wss) => {
             }
         });
 // Kontakları döndüren endpoint
-app.get('/contacts', async (req, res) => {
+app.get('/contacts/:userId', async (req, res) => {
     try {
-        const { userId } = req.query;
+        const { userId } = req.params;
+
         if (!userId) {
             return res.status(400).json({ error: 'User ID gereklidir.' });
         }
-        const client = clients[userId];
-        if (!client) {
-            return res.status(404).json({ error: 'Kullanıcı kayıtlı değil.' });
+
+        if (!clients[userId]) {
+            return res.status(404).json({ error: 'User not registered.' });
         }
-        
+
+        const client = clients[userId];
+
+        console.log(`✅ Kullanıcı ${userId} için client bulundu.`);
 
         const contacts = await client.getContacts();
         const formattedContacts = contacts.map(contact => ({
@@ -102,12 +106,15 @@ app.get('/contacts', async (req, res) => {
             name: contact.name || contact.pushname || contact.id.user,
         }));
 
+        console.log(`📢 ${contacts.length} kişi alındı.`);
         res.status(200).json({ contacts: formattedContacts });
+
     } catch (error) {
         console.error('Kontaklar alınırken hata:', error);
         res.status(500).json({ error: 'Kontaklar alınırken hata oluştu.' });
     }
 });
+
 
 const saveMediaToFile = async (media, msgId, timestamp) => {
     if (!media || !media.mimetype || !media.data) {
@@ -234,6 +241,7 @@ app.get('/messages/:chatId', async (req, res) => {
         }
 
         createClient(userId);
+        console.log(`🟢 Kullanıcı ${userId} için yeni istemci başlatıldı.`);
         res.json({ status: 'registered' });
     });
 

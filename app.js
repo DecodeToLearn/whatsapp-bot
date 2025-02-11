@@ -8,7 +8,9 @@ const app = express();
 const axios = require('axios');
 
 const { clientsInsta } = require('./instagram'); 
-//const { clients } = require('./whatsapp');
+const { clients, createClient } = require('./whatsapp');
+const { clientsTelegram } = require('./telegram');
+
 app.use('/media', express.static(path.join(__dirname, 'media')));
 const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -28,7 +30,20 @@ app.use(bodyParser.json());
 // WhatsApp ve Telegram modüllerini içe aktarın
 require('./whatsapp')(app, wss);
 require('./telegram')(app, wss);
-require('./instagram')(app, wss);
+
+app.post('/start-instagram', (req, res) => {
+    console.log("Instagram başlatma isteği alındı...");
+
+    try {
+        require('./instagram')(app, wss);
+        res.json({ success: true, message: "Instagram başlatıldı!" });
+    } catch (error) {
+        console.error("Instagram başlatılırken hata:", error);
+        res.status(500).json({ success: false, error: "Instagram başlatılamadı." });
+    }
+});
+
+
 // Kullanıcı bağlantı durumunu kontrol eden endpoint
 app.get('/check-user/:userId', (req, res) => {
     const { userId } = req.params;
@@ -75,9 +90,9 @@ server.listen(PORT, () => {
 // Kullanıcı bağlantı durumunu kontrol eden fonksiyon
 function checkUserConnection(userId) {
     // WhatsApp ve Telegram istemcilerini kontrol edin
-    console.log(`checkUserConnection`);
+    console.log(`✅ checkUserConnection çağrıldı: ${userId}`);
     const whatsappClient = require('./whatsapp').clients[userId];
     const telegramClient = require('./telegram').clients[userId];
-
+    console.log(`📢 Kullanıcı durumu: ${isConnected ? 'Bağlı' : 'Bağlı değil'}`);
     return (whatsappClient && whatsappClient.info) || (telegramClient && telegramClient.connected);
 }
