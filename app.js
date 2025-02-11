@@ -90,6 +90,7 @@ server.listen(PORT, () => {
     console.log(`Sunucu çalışıyor: http://localhost:${PORT}`);
 });
 // Kullanıcı bağlantı durumunu kontrol eden fonksiyon
+/*
 function checkUserConnection(userId) {
     console.log(`✅ checkUserConnection çağrıldı: ${userId}`);
 
@@ -110,4 +111,4 @@ function checkUserConnection(userId) {
 
     console.log(`🔴 Kullanıcı ${userId} bağlı değil.`);
     return false;
-}
+}*/
