@@ -22,6 +22,7 @@ module.exports = (app, wss) => {
 
     // WhatsApp işlevleri burada olacak
     function createClient(userId) {
+        
         const client = new Client({
             authStrategy: new LocalAuth({
                 clientId: userId,
@@ -227,6 +228,7 @@ app.get('/messages/:chatId', async (req, res) => {
 
         client.initialize();
         clients[userId] = client;
+        return client;
     }
 
     app.post('/register', (req, res) => {
@@ -774,4 +776,4 @@ app.get('/messages/:chatId', async (req, res) => {
         return await callChatGPTAPI(msg.body, userLanguage, apiKey);
     }
     
-module.exports.clients = clients;
+    module.exports = { clients, createClient };

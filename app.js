@@ -35,10 +35,17 @@ require('./telegram')(app, wss);
 // Kullanıcı bağlantı durumunu kontrol eden endpoint
 app.get('/check-user/:userId', (req, res) => {
     const { userId } = req.params;
-    console.log(`Kullanıcı ${userId}`);
-    const isConnected = checkUserConnection(userId); // Bu fonksiyonu aşağıda tanımlayacağız
+    console.log(`📌 Kullanıcı kontrol ediliyor: ${userId}`);
+
+    if (!clients[userId]) {
+        console.log(`🔴 Kullanıcı ${userId} bağlı değil, istemci başlatılıyor...`);
+        createClient(userId); // Eğer istemci yoksa başlat
+        return res.status(202).json({ connected: false, message: 'İstemci başlatılıyor, lütfen tekrar deneyin.' });
+    }
+
+    const isConnected = checkUserConnection(userId);
     console.log(`📢 Kullanıcı durumu: ${isConnected ? 'Bağlı' : 'Bağlı değil'}`);
-    createClient(userId);
+
     res.json({ connected: isConnected });
 });
 
