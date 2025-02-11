@@ -7,7 +7,7 @@ const path = require('path');
 const app = express();
 const axios = require('axios');
 
-const { clientsInsta } = require('./instagram'); 
+//const { clientsInsta } = require('./instagram'); 
 
 app.use('/media', express.static(path.join(__dirname, 'media')));
 const server = require('http').createServer(app);
@@ -29,9 +29,9 @@ app.use(bodyParser.json());
 const whatsapp = require('./whatsapp');
 whatsapp(app, wss);
 require('./telegram')(app, wss);
-require('./instagram')(app, wss);
+//require('./instagram')(app, wss);
 
-app.get('/check-user-instagram/:instagramId', async (req, res) => {
+/*app.get('/check-user-instagram/:instagramId', async (req, res) => {
     const { instagramId } = req.params;
     let accessToken = req.headers.authorization ? req.headers.authorization.replace('Bearer ', '') : null;
 
@@ -61,7 +61,7 @@ app.get('/check-user-instagram/:instagramId', async (req, res) => {
     }
 });
 
-
+*/
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
