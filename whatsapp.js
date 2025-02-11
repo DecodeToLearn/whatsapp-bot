@@ -782,4 +782,4 @@ app.get('/messages/:chatId', async (req, res) => {
         return await callChatGPTAPI(msg.body, userLanguage, apiKey);
     }
     
-    module.exports = { clients, createClient, checkUserConnection };
+    module.exports = { clients, checkUserConnection };
