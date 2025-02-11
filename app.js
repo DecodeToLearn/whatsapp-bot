@@ -7,13 +7,18 @@ const path = require('path');
 const app = express();
 const axios = require('axios');
 
+
+
+
+const server = require('http').createServer(app);
+const wss = new WebSocket.Server({ server });
+
 const { clientsInsta } = require('./instagram'); 
 const { clients, createClient } = require('./whatsapp');
 const { clientsTelegram } = require('./telegram');
-
 app.use('/media', express.static(path.join(__dirname, 'media')));
-const server = require('http').createServer(app);
-const wss = new WebSocket.Server({ server });
+app.use(cors(corsOptions));
+app.use(bodyParser.json());
 
 const corsOptions = {
     origin: '*',
@@ -24,12 +29,11 @@ const corsOptions = {
     optionsSuccessStatus: 204,
 };
 
-app.use(cors(corsOptions));
-app.use(bodyParser.json());
+
 
 // WhatsApp ve Telegram modüllerini içe aktarın
-require('./whatsapp')(app, wss);
-require('./telegram')(app, wss);
+//require('./whatsapp')(app, wss);
+//require('./telegram')(app, wss);
 //require('./instagram')(app, wss);
 
 // Kullanıcı bağlantı durumunu kontrol eden endpoint
