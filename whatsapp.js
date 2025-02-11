@@ -19,10 +19,16 @@ module.exports = (app, wss) => {
     if (!fs.existsSync(SESSION_DIR)) {
         fs.mkdirSync(SESSION_DIR);
     }
-
+    // Kullanıcı bağlı mı kontrol eden fonksiyon
+    function checkUserConnection(userId) {
+        return !!clients[userId]; // Kullanıcı varsa true, yoksa false döner
+    }
     // WhatsApp işlevleri burada olacak
     function createClient(userId) {
-        
+        if (clients[userId]) {
+            console.log(`✅ ${userId} zaten bağlı.`);
+            return clients[userId];
+        }
         const client = new Client({
             authStrategy: new LocalAuth({
                 clientId: userId,
@@ -776,4 +782,4 @@ app.get('/messages/:chatId', async (req, res) => {
         return await callChatGPTAPI(msg.body, userLanguage, apiKey);
     }
     
-    module.exports = { clients, createClient };
+    module.exports = { clients, createClient, checkUserConnection };

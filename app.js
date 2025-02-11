@@ -14,7 +14,7 @@ const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
 
 const { clientsInsta } = require('./instagram'); 
-const { clients, createClient } = require('./whatsapp');
+const { clients, createClient, checkUserConnection } = require('./whatsapp');
 const { clientsTelegram } = require('./telegram');
 app.use('/media', express.static(path.join(__dirname, 'media')));
 app.use(cors(corsOptions));
