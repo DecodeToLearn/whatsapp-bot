@@ -25,6 +25,7 @@ module.exports = (app, wss) => {
             console.log(`✅ ${userId} zaten bağlı.`);
             return clients[userId];
         }
+        console.log(`✅ ${userId} zaten bağlı2.`);
         const client = new Client({
             authStrategy: new LocalAuth({
                 clientId: userId,
