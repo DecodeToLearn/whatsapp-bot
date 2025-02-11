@@ -8,7 +8,7 @@ const app = express();
 const axios = require('axios');
 
 const { clientsInsta } = require('./instagram'); 
-const { clients } = require('./whatsapp');
+//const { clients } = require('./whatsapp');
 app.use('/media', express.static(path.join(__dirname, 'media')));
 const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -75,6 +75,7 @@ server.listen(PORT, () => {
 // Kullanıcı bağlantı durumunu kontrol eden fonksiyon
 function checkUserConnection(userId) {
     // WhatsApp ve Telegram istemcilerini kontrol edin
+    console.log(`checkUserConnection`);
     const whatsappClient = require('./whatsapp').clients[userId];
     const telegramClient = require('./telegram').clients[userId];
 
