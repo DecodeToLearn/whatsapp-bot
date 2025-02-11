@@ -39,7 +39,7 @@ app.get('/check-user/:userId', (req, res) => {
 
     if (!clients[userId]) {
         console.log(`🔴 Kullanıcı ${userId} bağlı değil, istemci başlatılıyor...`);
-        createClient(userId); // Eğer istemci yoksa başlat
+       // createClient(userId); // Eğer istemci yoksa başlat
         return res.status(202).json({ connected: false, message: 'İstemci başlatılıyor, lütfen tekrar deneyin.' });
     }
 
