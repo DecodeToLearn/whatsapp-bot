@@ -234,13 +234,15 @@ app.get('/messages/:chatId', async (req, res) => {
         const { userId } = req.body;
         console.log('/register endpoint çağrıldı: ', userId); // Log ekleyelim
         if (!userId) {
+            console.log('User ID eksik'); // Log ekleyelim
             return res.status(400).json({ error: 'User ID gereklidir.' });
         }
 
         if (clients[userId]) {
+            console.log('Kullanıcı zaten kayıtlı'); // Log ekleyelim
             return res.json({ status: 'already_registered' });
         }
-
+        console.log('createClient çağrılıyor'); // Log ekleyelim
         createClient(userId);
         res.json({ status: 'registered' });
     });
