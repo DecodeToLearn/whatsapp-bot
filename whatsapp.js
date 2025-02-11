@@ -228,6 +228,7 @@ app.get('/messages/:chatId', async (req, res) => {
 
         client.initialize();
         clients[userId] = client;
+        console.log(`Client oluşturuldu ve clients nesnesine eklendi: ${userId}`); // Log ekleyelim
     }
 
     app.post('/register', (req, res) => {
