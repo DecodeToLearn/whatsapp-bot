@@ -6,9 +6,9 @@ const axios = require('axios');
 const crypto = require('crypto');
 const ffmpeg = require('fluent-ffmpeg');
 const FormData = require('form-data');
-const { getImageEmbedding } = require('./image_embedding');
-const findProductByEmbedding = require('./find_embedding_product');
-const { callChatGPTAPI } = require('./callChatGPTAPI');
+const getImageEmbedding = require('./image_embedding');
+const findProductByEmbedding  = require('./find_embedding_product');
+const callChatGPTAPI  = require('./callChatGPTAPI');
 const clients = {};
 module.exports = (app, wss) => {
 

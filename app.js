@@ -26,7 +26,8 @@ app.use(cors(corsOptions));
 app.use(bodyParser.json());
 
 // WhatsApp ve Telegram modüllerini içe aktarın
-require('./whatsapp')(app, wss);
+const whatsapp = require('./whatsapp');
+whatsapp(app, wss);
 require('./telegram')(app, wss);
 require('./instagram')(app, wss);
 
