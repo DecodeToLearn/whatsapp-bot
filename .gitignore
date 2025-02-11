@@ -10,7 +10,7 @@ package-lock.json
 # PHP ile ilgili dosyalar
 send_whatsapp.php
 questions.json
-
+temp2.js
 # Sisteme özel dosyalar
 .DS_Store
 Thumbs.db
