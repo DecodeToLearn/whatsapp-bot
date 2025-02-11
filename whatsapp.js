@@ -33,6 +33,7 @@ module.exports = (app, wss) => {
 
     // WhatsApp işlevleri burada olacak
     function createClient(userId) {
+        console.log(`createClient fonksiyonu çağrıldı: ${userId}`); // Log ekleyelim
         const client = new Client({
             authStrategy: new LocalAuth({
                 clientId: userId,
@@ -96,6 +97,7 @@ module.exports = (app, wss) => {
         });
 // Kontakları döndüren endpoint
     app.get('/contacts', async (req, res) => {
+        console.log('/contacts endpoint çağrıldı'); // Log ekleyelim
         try {
             const activeClient = Object.values(clients)[0];
             if (!activeClient) {
@@ -230,7 +232,7 @@ app.get('/messages/:chatId', async (req, res) => {
 
     app.post('/register', (req, res) => {
         const { userId } = req.body;
-
+        console.log('/register endpoint çağrıldı: ', userId); // Log ekleyelim
         if (!userId) {
             return res.status(400).json({ error: 'User ID gereklidir.' });
         }
