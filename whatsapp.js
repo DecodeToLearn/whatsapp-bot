@@ -85,8 +85,11 @@ module.exports = (app, wss) => {
         });
 // Kontakları döndüren endpoint
 app.get('/contacts', async (req, res) => {
-    const { userId } = req.query;
+    const { userId } = req.params;
     try {
+        if (!userId) {
+            return res.status(400).json({ error: 'User ID gereklidir.' });
+        }
         if (!clients[userId]) {
             return res.status(400).json({ error: 'User not registered.' });
         }
@@ -303,7 +306,7 @@ app.get('/messages/:chatId', async (req, res) => {
     }
 
     async function checkUnreadMessages(client) {
-        
+
         const chats = await client.getChats();
         for (const chat of chats) {
             if (chat.unreadCount > 0) {
