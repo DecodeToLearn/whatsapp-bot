@@ -86,7 +86,7 @@ module.exports = (app, wss) => {
             }
         });
 // Kontakları döndüren endpoint
-app.get('/contacts', async (req, res) => {
+app.get('/contacts/:userId', async (req, res) => {
     const { userId } = req.params;
     try {
         if (!userId) {
