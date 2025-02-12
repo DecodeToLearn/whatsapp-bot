@@ -7,7 +7,7 @@ const path = require('path');
 const app = express();
 const axios = require('axios');
 
-const { clients } = require('./instagram'); 
+const { clientsInsta } = require('./instagram'); 
 
 app.use('/media', express.static(path.join(__dirname, 'media')));
 const server = require('http').createServer(app);
@@ -41,8 +41,8 @@ app.get('/check-user-instagram/:instagramId', async (req, res) => {
     let accessToken = req.headers.authorization ? req.headers.authorization.replace('Bearer ', '') : null;
 
     // Eğer istemci zaten WebSocket'e bağlanmışsa, doğrudan döndür.
-    if (clients[instagramId] && clients[instagramId].connected) {
-        return res.json({ connected: true, username: clients[instagramId].username || "Bilinmeyen Kullanıcı" });
+    if (clientsInsta[instagramId] && clientsInsta[instagramId].connected) {
+        return res.json({ connected: true, username: clientsInsta[instagramId].username || "Bilinmeyen Kullanıcı" });
     }
 
     // Eğer WebSocket bağlantısı yoksa ve accessToken alınamamışsa hata ver.
