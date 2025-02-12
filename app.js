@@ -78,8 +78,8 @@ server.listen(PORT, () => {
 // Kullanıcı bağlantı durumunu kontrol eden fonksiyon
 function checkUserConnection(userId) {
     // WhatsApp ve Telegram istemcilerini kontrol edin
-    const whatsappClient = require('./whatsapp').whatsappClient[userId];
-    const telegramClient = require('./telegram').telegramClient[userId];
+    const whatsappClient = whatsappClients[userId];
+    const telegramClient = telegramClients[userId];
 
     return (whatsappClient && whatsappClient.info) || (telegramClient && telegramClient.connected);
 }

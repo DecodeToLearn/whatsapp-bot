@@ -22,7 +22,7 @@ module.exports = (app, wss) => {
 
     // WhatsApp işlevleri burada olacak
     function createClient(userId) {
-        const client = new whatsappClients({
+        const client = new Client({
             authStrategy: new LocalAuth({
                 clientId: userId,
                 dataPath: path.join(SESSION_DIR, userId),
@@ -286,7 +286,7 @@ app.get('/messages/:chatId', async (req, res) => {
     });
 
     function broadcast(data) {
-        wss.whatsappClients.forEach((ws) => {
+        wss.clients.forEach((ws) => {
             if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify(data));
             }
