@@ -374,7 +374,7 @@ app.get('/messages/:chatId', async (req, res) => {
 
         const questionsData = JSON.parse(fs.readFileSync(questionsFilePath, 'utf8'));
 
-        let text = null;
+        let text = msg.body;
         let imageUrl = null;
         let caption = null;
         console.log('Mesaj içeriği:', msg);
@@ -394,13 +394,13 @@ app.get('/messages/:chatId', async (req, res) => {
                 if (!filePath) {
                     return 'Resim işlenirken hata oluştu.';
                 }
-                return await handleImageMessage(filePath, msg.body, questionsData, apiKey);
+                return await handleImageMessage(filePath, text, questionsData, apiKey);
             } else {
                 console.log(`Mesaj türü: ${msg.type}. Sesli mesaj veya resim değil.`);
             }
         } else {
                 // Metin mesajı
-                return await handleTextMessage(msg.body, questionsData, apiKey);
+                return await handleTextMessage(text, questionsData, apiKey);
             }
         }
     }
@@ -736,8 +736,8 @@ app.get('/messages/:chatId', async (req, res) => {
         }
     }
     async function handleTextMessage(msg, questionsData, apiKey) {
-        const userLanguage = await detectLanguage(msg.body); // Mesajın dilini algıla
-        const translatedText = await translateText(msg.body, 'tr'); // Türkçe'ye çevir
+        const userLanguage = await detectLanguage(msg); // Mesajın dilini algıla
+        const translatedText = await translateText(msg, 'tr'); // Türkçe'ye çevir
         const userEmbedding = await getEmbedding(translatedText, apiKey);
         if (!userEmbedding) {
             console.error("Kullanıcı embedding'i alınamadı.");
