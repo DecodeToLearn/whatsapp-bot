@@ -345,7 +345,7 @@ app.get('/messages/:chatId', async (req, res) => {
         }
 
         const questionsFilePath = path.join(__dirname, 'questions.json');
-        const questionsFileUrl = 'https://drive.google.com/uc?export=download&id=1kfUA2QYRu6wt8SibOPiz6jo21_hzJTTu';
+        const questionsFileUrl = 'https://drive.google.com/uc?export=download&id=1JqssSHtuuEOzjrIBmbfXhqKWZPkgG7TX';
 
         let downloadFile = false;
         if (fs.existsSync(questionsFilePath)) {
@@ -745,7 +745,7 @@ app.get('/messages/:chatId', async (req, res) => {
         }
         let bestMatch = null;
         let highestSimilarity = 0;
-        const similarityThreshold = 0.8; // Benzerlik için eşik değeri
+        const similarityThreshold = 0.9; // Benzerlik için eşik değeri
     
         // Soruların embedding'lerini oluştur ve en iyi eşleşmeyi bul
         for (const [question, answer] of Object.entries(questionsData)) {

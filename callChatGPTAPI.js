@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-async function callChatGPTAPI(messages, apiKey) {
+async function callChatGPTAPI(messages, userLanguage, apiKey) {
     if (!apiKey) {
         console.error('OpenAI API anahtarı tanımlanmamış.');
         return null;
@@ -14,7 +14,16 @@ async function callChatGPTAPI(messages, apiKey) {
 
     const data = {
         model: 'gpt-4o-2024-08-06', // Modeli uygun şekilde belirleyin
-        messages: messages,
+        messages: [
+            {
+                role: 'system',
+                content: `Kullanıcı mesajını analiz et ve uygun bir yanıt ver. Yanıtı ${userLanguage} dilinde döndür.`
+            },
+            {
+                role: 'user',
+                content: text
+            }
+        ],
         max_tokens: 1000,
         temperature: 0.7,
     };
