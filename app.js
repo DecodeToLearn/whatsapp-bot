@@ -7,9 +7,7 @@ const path = require('path');
 const app = express();
 const axios = require('axios');
 
-const { clients: instagramClients } = require('./instagram');
-const { clients: telegramClients } = require('./telegram');
-const { clients: whatsappClients } = require('./whatsapp');
+const { clients } = require('./instagram'); 
 
 app.use('/media', express.static(path.join(__dirname, 'media')));
 const server = require('http').createServer(app);
@@ -35,7 +33,6 @@ require('./instagram')(app, wss);
 app.get('/check-user/:userId', (req, res) => {
     const { userId } = req.params;
     const isConnected = checkUserConnection(userId); // Bu fonksiyonu aşağıda tanımlayacağız
-    console.log(`Bağlandı mı: ${isConnected}`);
     res.json({ connected: isConnected });
 });
 
@@ -44,8 +41,8 @@ app.get('/check-user-instagram/:instagramId', async (req, res) => {
     let accessToken = req.headers.authorization ? req.headers.authorization.replace('Bearer ', '') : null;
 
     // Eğer istemci zaten WebSocket'e bağlanmışsa, doğrudan döndür.
-    if (instagramClients[instagramId] && instagramClients[instagramId].connected) {
-        return res.json({ connected: true, username: instagramClients[instagramId].username || "Bilinmeyen Kullanıcı" });
+    if (clients[instagramId] && clients[instagramId].connected) {
+        return res.json({ connected: true, username: clients[instagramId].username || "Bilinmeyen Kullanıcı" });
     }
 
     // Eğer WebSocket bağlantısı yoksa ve accessToken alınamamışsa hata ver.
@@ -78,8 +75,8 @@ server.listen(PORT, () => {
 // Kullanıcı bağlantı durumunu kontrol eden fonksiyon
 function checkUserConnection(userId) {
     // WhatsApp ve Telegram istemcilerini kontrol edin
-    const whatsappClient = whatsappClients[userId];
-    const telegramClient = telegramClients[userId];
+    const whatsappClient = require('./whatsapp').clients[userId];
+    const telegramClient = require('./telegram').clients[userId];
 
     return (whatsappClient && whatsappClient.info) || (telegramClient && telegramClient.connected);
 }

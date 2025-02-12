@@ -9,7 +9,7 @@ const crypto = require('crypto');
 const FormData = require('form-data');
 const ffmpeg = require('fluent-ffmpeg');
 
-const telegramClients = {};
+const clients = {};
 let isInitialCheckDone = false;
 
 module.exports = (app, wss) => {
@@ -39,7 +39,7 @@ module.exports = (app, wss) => {
             console.error('Client başlatılırken bir hata oluştu:', error);
         }
         fs.writeFileSync(sessionPath, client.session.save());
-        telegramClients[userId] = client;
+        clients[userId] = client;
 
         client.addEventHandler(handleNewMessage, new NewMessage({}));
         checkUnreadMessages(client);
@@ -116,7 +116,7 @@ module.exports = (app, wss) => {
 
     setInterval(async () => {
         if (isInitialCheckDone) {
-            for (const client of Object.values(telegramClients)) {
+            for (const client of Object.values(clients)) {
                 await checkUnreadMessages(client);
             }
         }
@@ -439,7 +439,7 @@ module.exports = (app, wss) => {
                 phoneCode: async () => {
                     // Doğrulama kodunu bekleyin
                     return new Promise((resolve) => {
-                        telegramClients[userId] = { client, resolve };
+                        clients[userId] = { client, resolve };
                     });
                 },
                 onError: (err) => console.log(err),
@@ -459,7 +459,7 @@ module.exports = (app, wss) => {
             return res.status(400).json({ error: 'User ID and phone code are required.' });
         }
 
-        const clientData = telegramClients[userId];
+        const clientData = clients[userId];
         if (!clientData) {
             return res.status(400).json({ error: 'User not found or code not sent.' });
         }
@@ -468,7 +468,7 @@ module.exports = (app, wss) => {
             clientData.resolve(phoneCode);
             // Password doğrulama işlemi olmadan devam ediyoruz
             fs.writeFileSync(path.join(SESSION_DIR, `${userId}.session`), clientData.client.session.save());
-            telegramClients[userId] = clientData.client;
+            clients[userId] = clientData.client;
            
             // Event handler ve unread messages kontrolü
             clientData.client.addEventHandler(handleNewMessage, new NewMessage({}));
@@ -486,12 +486,12 @@ module.exports = (app, wss) => {
     app.get('/contacts', async (req, res) => {
       const { userId } = req.query;
   
-      if (!telegramClients[userId]) {
+      if (!clients[userId]) {
           return res.status(400).json({ error: 'User not registered.' });
       }
   
       try {
-          const client = telegramClients[userId];
+          const client = clients[userId];
   
           // Tüm diyalogları al
           const dialogs = await client.getDialogs({ limit: 100 });
@@ -570,7 +570,7 @@ module.exports = (app, wss) => {
     const { userId } = req.query;
     const { chatId } = req.params;
 
-    if (!telegramClients[userId]) {
+    if (!clients[userId]) {
         return res.status(400).json({ error: 'User not registered.' });
     }
 
@@ -582,7 +582,7 @@ module.exports = (app, wss) => {
         const peer = new Api.InputPeerUser({ userId: parseInt(chatId) });
 
         while (true) {
-            const result = await telegramClients[userId].invoke(new Api.messages.GetHistory({
+            const result = await clients[userId].invoke(new Api.messages.GetHistory({
                 peer,
                 limit,
                 addOffset: offsetId,
@@ -601,14 +601,14 @@ module.exports = (app, wss) => {
                 if (message.media) {
                     if (message.media.photo) {
                         // Fotoğraf mesajı
-                        const photoBuffer = await telegramClients[userId].downloadMedia(message.media, { workers: 1 });
+                        const photoBuffer = await clients[userId].downloadMedia(message.media, { workers: 1 });
                         formattedMessage.media = {
                             type: 'photo',
                             url: `data:image/jpeg;base64,${photoBuffer.toString('base64')}`,
                         };
                     } else if (message.media.document && message.media.document.mimeType === 'video/mp4') {
                         // Video mesajı
-                        const videoBuffer = await telegramClients[userId].downloadMedia(message.media, { workers: 1 });
+                        const videoBuffer = await clients[userId].downloadMedia(message.media, { workers: 1 });
                         formattedMessage.media = {
                             type: 'video',
                             url: `data:video/mp4;base64,${videoBuffer.toString('base64')}`,
@@ -616,7 +616,7 @@ module.exports = (app, wss) => {
                         };
                     } else if (message.media.document) {
                         // Belge mesajı
-                        const documentBuffer = await telegramClients[userId].downloadMedia(message.media, { workers: 1 });
+                        const documentBuffer = await clients[userId].downloadMedia(message.media, { workers: 1 });
                         formattedMessage.media = {
                             type: 'document',
                             url: `data:application/octet-stream;base64,${documentBuffer.toString('base64')}`,
@@ -649,4 +649,4 @@ module.exports = (app, wss) => {
     });
 };
 
-module.exports.telegramClients = telegramClients;
+module.exports.clients = clients;

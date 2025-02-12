@@ -9,7 +9,7 @@ const FormData = require('form-data');
 const { getImageEmbedding } = require('./image_embedding');
 const findProductByEmbedding = require('./find_embedding_product');
 const { callChatGPTAPI } = require('./callChatGPTAPI');
-const whatsappClients = {};
+const clients = {};
 module.exports = (app, wss) => {
 
     const qrCodes = {};
@@ -85,8 +85,12 @@ module.exports = (app, wss) => {
         });
 // Kontakları döndüren endpoint
 app.get('/contacts', async (req, res) => {
+    const { userId } = req.query;
     try {
-        const activeClient = Object.values(whatsappClients)[0];
+        if (!clients[userId]) {
+            return res.status(400).json({ error: 'User not registered.' });
+        }
+        const activeClient = clients[userId];
         console.log(`${activeClient} WhatsApp botu hazır.`);
         if (!activeClient) {
             return res.status(404).json({ error: 'Aktif bir WhatsApp oturumu yok.' });
@@ -144,15 +148,16 @@ const saveMediaToFile = async (media, msgId, timestamp) => {
 
 const downloadedMedia = new Set();
 app.get('/messages/:chatId', async (req, res) => {
+    const { userId } = req.query;
     try {
         const limit = parseInt(req.query.limit) || 20;
-        const activeClient = Object.values(whatsappClients)[0];
+        const { chatId } = req.params;
 
-        if (!activeClient) {
-            return res.status(404).json({ error: 'Aktif bir WhatsApp oturumu yok.' });
+        if (!clients[userId]) {
+            return res.status(400).json({ error: 'User not registered.' });
         }
-
-        const chat = await activeClient.getChatById(req.params.chatId);
+        const activeClient = clients[userId];
+        const chat = await activeClient.getChatById(chatId);
         const messages = await chat.fetchMessages({ limit });
 
         const formattedMessages = await Promise.all(
@@ -215,7 +220,7 @@ app.get('/messages/:chatId', async (req, res) => {
         });
 
         client.initialize();
-        whatsappClients[userId] = client;
+        clients[userId] = client;
     }
 
     app.post('/register', (req, res) => {
@@ -225,7 +230,7 @@ app.get('/messages/:chatId', async (req, res) => {
             return res.status(400).json({ error: 'User ID gereklidir.' });
         }
 
-        if (whatsappClients[userId]) {
+        if (clients[userId]) {
             return res.json({ status: 'already_registered' });
         }
 
@@ -271,11 +276,11 @@ app.get('/messages/:chatId', async (req, res) => {
                 }
 
                 const messageMedia = MessageMedia.fromFilePath(mediaPath);
-                await whatsappClients[number].sendMessage(formattedNumber, messageMedia, { caption });
+                await clients[number].sendMessage(formattedNumber, messageMedia, { caption });
 
                 fs.unlinkSync(mediaPath);
             } else if (caption) {
-                await whatsappClients[number].sendMessage(formattedNumber, caption);
+                await clients[number].sendMessage(formattedNumber, caption);
             }
 
             res.status(200).json({ success: true });
@@ -298,6 +303,7 @@ app.get('/messages/:chatId', async (req, res) => {
     }
 
     async function checkUnreadMessages(client) {
+        
         const chats = await client.getChats();
         for (const chat of chats) {
             if (chat.unreadCount > 0) {
@@ -320,7 +326,7 @@ app.get('/messages/:chatId', async (req, res) => {
 
     setInterval(async () => {
         if (isInitialCheckDone) {
-            for (const client of Object.values(whatsappClients)) {
+            for (const client of Object.values(clients)) {
                 await checkUnreadMessages(client);
             }
         }
@@ -763,4 +769,4 @@ app.get('/messages/:chatId', async (req, res) => {
         return await callChatGPTAPI(msg.body, userLanguage, apiKey);
     }
     
-module.exports.whatsappClients = whatsappClients;
+module.exports.clients = clients;

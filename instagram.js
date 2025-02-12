@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const FormData = require('form-data');
 const ffmpeg = require('fluent-ffmpeg');
 
-const instagramClients = {};
+const clientsInsta = {};
 let isInitialCheckDone = false;
 
 module.exports = (app, wss) => {
@@ -30,7 +30,7 @@ module.exports = (app, wss) => {
         }
     
         // Kullanıcıyı WebSocket istemcilerine ekle
-        instagramClients[instagramId] = { accessToken, connected: true };
+        clientsInsta[instagramId] = { accessToken, connected: true };
         console.log(`✅ Instagram Bağlantı Kuruldu: ${instagramId}`);
     
         ws.on('message', (message) => {
@@ -39,7 +39,7 @@ module.exports = (app, wss) => {
     
         ws.on('close', () => {
             console.log(`🔴 Kullanıcı Bağlantıyı Kapattı: ${instagramId}`);
-            delete instagramClients[instagramId]; // Kullanıcıyı temizle
+            delete clientsInsta[instagramId]; // Kullanıcıyı temizle
         });
     });
 
@@ -65,7 +65,7 @@ module.exports = (app, wss) => {
     }
 
     async function checkUnreadMessages(userId) {
-        const accessToken = instagramClients[userId].accessToken;
+        const accessToken = clientsInsta[userId].accessToken;
         try {
             const response = await axios.get(`https://graph.instagram.com/v22.0/me/messages?access_token=${accessToken}`);
             const messages = response.data.data;
@@ -89,7 +89,7 @@ module.exports = (app, wss) => {
 
     setInterval(async () => {
         if (isInitialCheckDone) {
-            for (const userId of Object.keys(instagramClients)) {
+            for (const userId of Object.keys(clientsInsta)) {
                 await checkUnreadMessages(userId);
             }
         }
@@ -389,7 +389,7 @@ module.exports = (app, wss) => {
     }
 
     async function sendMessage(instagramId, recipientId, message) {
-        const accessToken = instagramClients[instagramId].accessToken;
+        const accessToken = clientsInsta[instagramId].accessToken;
         try {
             await axios.post(`https://graph.instagram.com/v22.0/me/messages?access_token=${accessToken}`, {
                 recipient: { id: recipientId },
@@ -515,8 +515,8 @@ module.exports = (app, wss) => {
     app.get('/contacts-instagram', async (req, res) => {
         const { instagramId, accessToken } = req.query;
     
-        if (!instagramClients[instagramId]) {
-            instagramClients[instagramId] = { accessToken, connected: true };
+        if (!clientsInsta[instagramId]) {
+            clientsInsta[instagramId] = { accessToken, connected: true };
         }
     
         try {
@@ -574,7 +574,7 @@ module.exports = (app, wss) => {
         const { instagramId, accessToken } = req.query;
         const { chatId } = req.params;
     
-        if (!instagramClients[instagramId]) {
+        if (!clientsInsta[instagramId]) {
             instagramClients[instagramId] = { accessToken, connected: true };
         }
     
@@ -634,4 +634,4 @@ module.exports = (app, wss) => {
 };
 
 
-module.exports.instagramClients = instagramClients;
+module.exports.clientsInsta = clientsInsta;
