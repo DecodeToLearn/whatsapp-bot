@@ -35,6 +35,7 @@ require('./instagram')(app, wss);
 app.get('/check-user/:userId', (req, res) => {
     const { userId } = req.params;
     const isConnected = checkUserConnection(userId); // Bu fonksiyonu aşağıda tanımlayacağız
+    console.log(`Bağlandı mı: ${isConnected}`);
     res.json({ connected: isConnected });
 });
 
