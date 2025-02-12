@@ -6,34 +6,22 @@ const axios = require('axios');
 const crypto = require('crypto');
 const ffmpeg = require('fluent-ffmpeg');
 const FormData = require('form-data');
-const getImageEmbedding = require('./image_embedding');
-const findProductByEmbedding  = require('./find_embedding_product');
-const callChatGPTAPI  = require('./callChatGPTAPI');
-const clients = {};
+const { getImageEmbedding } = require('./image_embedding');
+const findProductByEmbedding = require('./find_embedding_product');
+const { callChatGPTAPI } = require('./callChatGPTAPI');
+const whatsappClients = {};
 module.exports = (app, wss) => {
 
     const qrCodes = {};
     const SESSION_DIR = './sessions';
-
+    let isInitialCheckDone = false;
 
     if (!fs.existsSync(SESSION_DIR)) {
         fs.mkdirSync(SESSION_DIR);
     }
-    app.get('/check-user/:userId', async (req, res) => {
-        const { userId } = req.params;
-    
-        if (clients[userId]) {
-            res.json({ connected: true });
-        } else {
-            res.json({ connected: false });
-        }
-    });
-
-    let isInitialCheckDone = false;
 
     // WhatsApp işlevleri burada olacak
     function createClient(userId) {
-        console.log(`createClient fonksiyonu çağrıldı: ${userId}`); // Log ekleyelim
         const client = new Client({
             authStrategy: new LocalAuth({
                 clientId: userId,
@@ -75,8 +63,6 @@ module.exports = (app, wss) => {
                     id: contact.id._serialized,
                     name: contact.name || contact.pushname || contact.id.user,
                 }));
-                const activeClient = Object.values(clients)[0];
-                console.log('Aktif client:', activeClient); // Log ekleyelim
                 // Okunmamış mesajları kontrol et
                 broadcast({ type: 'contacts', contacts, userId });
                 checkUnreadMessages(client);
@@ -98,27 +84,26 @@ module.exports = (app, wss) => {
             }
         });
 // Kontakları döndüren endpoint
-    app.get('/contacts', async (req, res) => {
-        console.log('/contacts endpoint çağrıldı'); // Log ekleyelim
-        
-        try {
-            const activeClient = Object.values(clients)[0];
-            if (!activeClient) {
-                return res.status(404).json({ error: 'Aktif bir WhatsApp oturumu yok.' });
-            }
-
-            const contacts = await activeClient.getContacts();
-            const formattedContacts = contacts.map(contact => ({
-                id: contact.id._serialized,
-                name: contact.name || contact.pushname || contact.id.user,
-            }));
-
-            res.status(200).json({ contacts: formattedContacts });
-        } catch (error) {
-            console.error('Kontaklar alınırken hata:', error);
-            res.status(500).json({ error: 'Kontaklar alınırken hata oluştu.' });
+app.get('/contacts', async (req, res) => {
+    try {
+        const activeClient = Object.values(whatsappClients)[0];
+        console.log(`${activeClient} WhatsApp botu hazır.`);
+        if (!activeClient) {
+            return res.status(404).json({ error: 'Aktif bir WhatsApp oturumu yok.' });
         }
-    });
+
+        const contacts = await activeClient.getContacts();
+        const formattedContacts = contacts.map(contact => ({
+            id: contact.id._serialized,
+            name: contact.name || contact.pushname || contact.id.user,
+        }));
+
+        res.status(200).json({ contacts: formattedContacts });
+    } catch (error) {
+        console.error('Kontaklar alınırken hata:', error);
+        res.status(500).json({ error: 'Kontaklar alınırken hata oluştu.' });
+    }
+});
 
 const saveMediaToFile = async (media, msgId, timestamp) => {
     if (!media || !media.mimetype || !media.data) {
@@ -161,7 +146,7 @@ const downloadedMedia = new Set();
 app.get('/messages/:chatId', async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 20;
-        const activeClient = Object.values(clients)[0];
+        const activeClient = Object.values(whatsappClients)[0];
 
         if (!activeClient) {
             return res.status(404).json({ error: 'Aktif bir WhatsApp oturumu yok.' });
@@ -230,23 +215,20 @@ app.get('/messages/:chatId', async (req, res) => {
         });
 
         client.initialize();
-        clients[userId] = client;
-        console.log(`Client oluşturuldu ve clients nesnesine eklendi: ${userId}`); // Log ekleyelim
+        whatsappClients[userId] = client;
     }
 
     app.post('/register', (req, res) => {
         const { userId } = req.body;
-        console.log('/register endpoint çağrıldı: ', userId); // Log ekleyelim
+
         if (!userId) {
-            console.log('User ID eksik'); // Log ekleyelim
             return res.status(400).json({ error: 'User ID gereklidir.' });
         }
 
-        if (clients[userId]) {
-            console.log('Kullanıcı zaten kayıtlı'); // Log ekleyelim
+        if (whatsappClients[userId]) {
             return res.json({ status: 'already_registered' });
         }
-        console.log('createClient çağrılıyor'); // Log ekleyelim
+
         createClient(userId);
         res.json({ status: 'registered' });
     });
@@ -289,11 +271,11 @@ app.get('/messages/:chatId', async (req, res) => {
                 }
 
                 const messageMedia = MessageMedia.fromFilePath(mediaPath);
-                await clients[number].sendMessage(formattedNumber, messageMedia, { caption });
+                await whatsappClients[number].sendMessage(formattedNumber, messageMedia, { caption });
 
                 fs.unlinkSync(mediaPath);
             } else if (caption) {
-                await clients[number].sendMessage(formattedNumber, caption);
+                await whatsappClients[number].sendMessage(formattedNumber, caption);
             }
 
             res.status(200).json({ success: true });
@@ -304,7 +286,7 @@ app.get('/messages/:chatId', async (req, res) => {
     });
 
     function broadcast(data) {
-        wss.clients.forEach((ws) => {
+        wss.whatsappClients.forEach((ws) => {
             if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify(data));
             }
@@ -338,7 +320,7 @@ app.get('/messages/:chatId', async (req, res) => {
 
     setInterval(async () => {
         if (isInitialCheckDone) {
-            for (const client of Object.values(clients)) {
+            for (const client of Object.values(whatsappClients)) {
                 await checkUnreadMessages(client);
             }
         }
@@ -781,4 +763,4 @@ app.get('/messages/:chatId', async (req, res) => {
         return await callChatGPTAPI(msg.body, userLanguage, apiKey);
     }
     
-module.exports.clients = clients;
+module.exports.whatsappClients = whatsappClients;
