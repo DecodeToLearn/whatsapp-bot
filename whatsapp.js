@@ -22,6 +22,7 @@ module.exports = (app, wss) => {
 
     // WhatsApp işlevleri burada olacak
     function createClient(userId) {
+        console.log(`createClient fonksiyonu çağrıldı: ${userId}`); // Log ekleyelim
         const client = new Client({
             authStrategy: new LocalAuth({
                 clientId: userId,
@@ -63,6 +64,7 @@ module.exports = (app, wss) => {
                     id: contact.id._serialized,
                     name: contact.name || contact.pushname || contact.id.user,
                 }));
+                console.log(`Kontaklar alındı: ${contacts.length} adet`); // Log ekleyelim
                 // Okunmamış mesajları kontrol et
                 broadcast({ type: 'contacts', contacts, userId });
                 checkUnreadMessages(client);
