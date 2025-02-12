@@ -44,8 +44,8 @@ app.get('/check-user-instagram/:instagramId', async (req, res) => {
     let accessToken = req.headers.authorization ? req.headers.authorization.replace('Bearer ', '') : null;
 
     // Eğer istemci zaten WebSocket'e bağlanmışsa, doğrudan döndür.
-    if (clients[instagramId] && clients[instagramId].connected) {
-        return res.json({ connected: true, username: clients[instagramId].username || "Bilinmeyen Kullanıcı" });
+    if (instagramClients[instagramId] && instagramClients[instagramId].connected) {
+        return res.json({ connected: true, username: instagramClients[instagramId].username || "Bilinmeyen Kullanıcı" });
     }
 
     // Eğer WebSocket bağlantısı yoksa ve accessToken alınamamışsa hata ver.
@@ -78,8 +78,8 @@ server.listen(PORT, () => {
 // Kullanıcı bağlantı durumunu kontrol eden fonksiyon
 function checkUserConnection(userId) {
     // WhatsApp ve Telegram istemcilerini kontrol edin
-    const whatsappClient = require('./whatsapp').clients[userId];
-    const telegramClient = require('./telegram').clients[userId];
+    const whatsappClient = require('./whatsapp').whatsappClient[userId];
+    const telegramClient = require('./telegram').telegramClient[userId];
 
     return (whatsappClient && whatsappClient.info) || (telegramClient && telegramClient.connected);
 }

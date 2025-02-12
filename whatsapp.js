@@ -22,7 +22,7 @@ module.exports = (app, wss) => {
 
     // WhatsApp işlevleri burada olacak
     function createClient(userId) {
-        const client = new Client({
+        const client = new whatsappClients({
             authStrategy: new LocalAuth({
                 clientId: userId,
                 dataPath: path.join(SESSION_DIR, userId),
