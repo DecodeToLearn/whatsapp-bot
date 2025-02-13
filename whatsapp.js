@@ -374,7 +374,7 @@ app.get('/messages/:chatId', async (req, res) => {
         }
 
         const questionsFilePath = path.join(__dirname, 'questions.json');
-        const questionsFileUrl = 'https://drive.google.com/uc?export=download&id=1JqssSHtuuEOzjrIBmbfXhqKWZPkgG7TX';
+        const questionsFileUrl = 'https://wp.clupfashion.com/feed/questions.json';
 
         let downloadFile = false;
         if (fs.existsSync(questionsFilePath)) {
@@ -765,9 +765,22 @@ app.get('/messages/:chatId', async (req, res) => {
         }
     }
     async function handleTextMessage(msg, questionsData, apiKey) {
+        try {
         const userLanguage = await detectLanguage(msg); // Mesajın dilini algıla
         const translatedText = await translateText(msg, 'tr'); // Türkçe'ye çevir
+
+                // 2. Anahtar kelimelerle kategori belirle
+                const selectedCategory = findCategory(translatedText, questionsData);
+                if (!selectedCategory) {
+                    console.log("Kategori bulunamadı. ChatGPT'ye yönlendiriliyor...");
+                    return await callChatGPTAPI(msg, userLanguage, apiKey);
+                }
+
+
+        // 3. Seçilen kategoride soru eşleştirme
+        const categoryQuestions = questionsData[selectedCategory].Sorular;
         const userEmbedding = await getEmbedding(translatedText, apiKey);
+
         if (!userEmbedding) {
             console.error("Kullanıcı embedding'i alınamadı.");
             return "Bir hata oluştu. Lütfen tekrar deneyin.";
@@ -777,30 +790,41 @@ app.get('/messages/:chatId', async (req, res) => {
         const similarityThreshold = 0.85; // Benzerlik için eşik değeri
     
         // Soruların embedding'lerini oluştur ve en iyi eşleşmeyi bul
-        for (const [question, answer] of Object.entries(questionsData)) {
-            const questionEmbedding = await getEmbedding(question, apiKey);
-            if (!questionEmbedding) {
-                console.error(`Soru embedding'i alınamadı: ${question}`);
-                continue;
-            }
-    
-            // Cosine similarity hesapla
-            const similarity = cosineSimilarity(userEmbedding, questionEmbedding);
-            if (similarity > highestSimilarity) {
-                highestSimilarity = similarity;
-                bestMatch = { question, answer };
+        for (const [question, questionData] of Object.entries(categoryQuestions)) {
+            for (const template of questionData.Şablonlar) {
+                const questionEmbedding = await getEmbedding(template, apiKey);
+                const similarity = cosineSimilarity(userEmbedding, questionEmbedding);
+
+                if (similarity > highestSimilarity) {
+                    highestSimilarity = similarity;
+                    bestMatch = questionData.Cevap;
+                }
             }
         }
     
         // Eşik değer kontrolü
+        // 4. Eşleşme kontrolü ve cevap döndürme
         if (highestSimilarity >= similarityThreshold) {
-            const translatedResponse = await translateText(bestMatch.answer, userLanguage);
-            console.log(`En uygun cevap bulundu: "${bestMatch.question}" (${highestSimilarity})`);
-            return translatedResponse; // Kullanıcının diline çevrilmiş cevap
+            const translatedResponse = await translateText(bestMatch, userLanguage);
+            console.log(`En uygun cevap bulundu: "${bestMatch}" (${highestSimilarity})`);
+            return translatedResponse;
+        } else {
+            console.log("Uygun cevap bulunamadı. ChatGPT'ye yönlendiriliyor...");
+            return await callChatGPTAPI(msg, userLanguage, apiKey);
         }
-    
-        // JSON'dan cevap bulunamazsa ChatGPT API'ye yönlendir
-        return await callChatGPTAPI(msg, userLanguage, apiKey);
+    } catch (error) {
+        console.error("Bir hata oluştu:", error.message);
+        return "Bir hata oluştu. Lütfen tekrar deneyin.";
     }
-    
+    }
+        // Kategori bulma fonksiyonu
+    function findCategory(text, questionsData) {
+        const lowerCaseText = text.toLowerCase();
+        for (const [category, data] of Object.entries(questionsData)) {
+            if (data["Anahtar Kelimeler"].some(keyword => text.toLowerCase().includes(keyword.toLowerCase()))) {
+                return category;
+            }
+        }
+        return null; // Kategori bulunamadı
+    }
 module.exports.clients = clients;

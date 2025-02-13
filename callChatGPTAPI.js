@@ -21,7 +21,7 @@ async function callChatGPTAPI(messages, userLanguage, apiKey) {
             },
             {
                 role: 'user',
-                content: text
+                content: messages
             }
         ],
         max_tokens: 1000,
