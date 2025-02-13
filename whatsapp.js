@@ -84,6 +84,19 @@ module.exports = (app, wss) => {
                     await msg.reply(response);
                 }
             }
+                 // Yanıtlanmış mesajı kontrol et ve al
+            if (msg.hasQuotedMsg) {
+                const quotedMsg = await msg.getQuotedMessage();
+                console.log(`Yanıtlanan mesaj: ${quotedMsg.body}`);
+                const isQuotedReplied = await checkIfReplied(quotedMsg);
+                if (!isQuotedReplied) {
+                const response = await getChatGPTResponse(quotedMsg);
+                    if (response) {
+                        await msg.reply(response);
+                    }
+               
+                }
+            }
         });
 // Kontakları döndüren endpoint
 app.get('/contacts/:userId', async (req, res) => {
@@ -308,24 +321,40 @@ app.get('/messages/:chatId', async (req, res) => {
     }
 
     async function checkUnreadMessages(client) {
-
-        const chats = await client.getChats();
-        for (const chat of chats) {
-            if (chat.unreadCount > 0) {
-                console.log(`Okunmamış mesaj sayısı: ${chat.unreadCount}, Chat ID: ${chat.id._serialized}`);
-                const unreadMessages = await chat.fetchMessages({ limit: chat.unreadCount });
-                for (const msg of unreadMessages) {
-                    if (!msg.isRead) {
-                        const isReplied = await checkIfReplied(msg);
-                        if (!isReplied) {
-                            const response = await getChatGPTResponse(msg);
-                            if (response) {
-                                await msg.reply(response);
+    try {
+            const chats = await client.getChats();
+            for (const chat of chats) {
+                if (chat.unreadCount > 0) {
+                    console.log(`Okunmamış mesaj sayısı: ${chat.unreadCount}, Chat ID: ${chat.id._serialized}`);
+                    const unreadMessages = await chat.fetchMessages({ limit: chat.unreadCount });
+                    for (const msg of unreadMessages) {
+                        if (!msg.isRead) {
+                            const isReplied = await checkIfReplied(msg);
+                            if (!isReplied) {
+                                const response = await getChatGPTResponse(msg);
+                                if (response) {
+                                    await msg.reply(response);
+                                }
+                            }
+                                            // Yanıtlanmış mesajı kontrol et ve al
+                            if (msg.hasQuotedMsg) {
+                                const quotedMsg = await msg.getQuotedMessage();
+                                console.log(`Yanıtlanan mesaj: ${quotedMsg.body}`);
+                                const isQuotedReplied = await checkIfReplied(quotedMsg);
+                                if (!isQuotedReplied) {
+                                const response = await getChatGPTResponse(quotedMsg);
+                                    if (response) {
+                                        await msg.reply(response);
+                                    }
+                            
+                                }
                             }
                         }
                     }
                 }
             }
+        } catch (error) {
+            console.error('Okunmamış mesajlar kontrol edilirken hata:', error);
         }
     }
 
@@ -667,7 +696,7 @@ app.get('/messages/:chatId', async (req, res) => {
             }
 
             // Eğer eşleşme varsa cevap döndür
-            if (highestSimilarity >= 0.8) {
+            if (highestSimilarity >= 0.82) {
                 console.log(`En uygun cevap bulundu: ${bestMatch.question} (${highestSimilarity})`);
                 const translatedResponse = await translateText(bestMatch.answer, userLanguage);
                 return translatedResponse;
@@ -721,7 +750,7 @@ app.get('/messages/:chatId', async (req, res) => {
             }
     
             // 4. En yüksek benzerlik eşik değeri ile karşılaştırılıyor
-            if (highestSimilarity >= 0.8 && bestMatch) {
+            if (highestSimilarity >= 0.82 && bestMatch) {
                 console.log(`En uygun cevap bulundu: ${bestMatch.question} (${highestSimilarity})`);
                 const translatedResponse = await translateText(bestMatch.answer, userLanguage); // Cevabı kullanıcı diline çevir
                 return translatedResponse;
@@ -745,7 +774,7 @@ app.get('/messages/:chatId', async (req, res) => {
         }
         let bestMatch = null;
         let highestSimilarity = 0;
-        const similarityThreshold = 0.9; // Benzerlik için eşik değeri
+        const similarityThreshold = 0.82; // Benzerlik için eşik değeri
     
         // Soruların embedding'lerini oluştur ve en iyi eşleşmeyi bul
         for (const [question, answer] of Object.entries(questionsData)) {
