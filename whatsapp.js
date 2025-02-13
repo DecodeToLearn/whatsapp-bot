@@ -8,7 +8,7 @@ const ffmpeg = require('fluent-ffmpeg');
 const FormData = require('form-data');
 const { getImageEmbedding } = require('./image_embedding');
 const findProductByEmbedding = require('./find_embedding_product');
-const { callChatGPTAPI } = require('./callChatGPTAPI');
+const callChatGPTAPI = require('./callChatGPTAPI');
 const clients = {};
 module.exports = (app, wss) => {
 
@@ -696,7 +696,7 @@ app.get('/messages/:chatId', async (req, res) => {
             }
 
             // Eğer eşleşme varsa cevap döndür
-            if (highestSimilarity >= 0.82) {
+            if (highestSimilarity >= 0.85) {
                 console.log(`En uygun cevap bulundu: ${bestMatch.question} (${highestSimilarity})`);
                 const translatedResponse = await translateText(bestMatch.answer, userLanguage);
                 return translatedResponse;
@@ -750,7 +750,7 @@ app.get('/messages/:chatId', async (req, res) => {
             }
     
             // 4. En yüksek benzerlik eşik değeri ile karşılaştırılıyor
-            if (highestSimilarity >= 0.82 && bestMatch) {
+            if (highestSimilarity >= 0.85 && bestMatch) {
                 console.log(`En uygun cevap bulundu: ${bestMatch.question} (${highestSimilarity})`);
                 const translatedResponse = await translateText(bestMatch.answer, userLanguage); // Cevabı kullanıcı diline çevir
                 return translatedResponse;
@@ -774,7 +774,7 @@ app.get('/messages/:chatId', async (req, res) => {
         }
         let bestMatch = null;
         let highestSimilarity = 0;
-        const similarityThreshold = 0.82; // Benzerlik için eşik değeri
+        const similarityThreshold = 0.85; // Benzerlik için eşik değeri
     
         // Soruların embedding'lerini oluştur ve en iyi eşleşmeyi bul
         for (const [question, answer] of Object.entries(questionsData)) {
