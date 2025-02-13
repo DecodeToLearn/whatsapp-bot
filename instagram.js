@@ -17,6 +17,8 @@ module.exports = (app, wss) => {
     }
 
     // WebSocket bağlantısı
+
+    /*
     wss.on('connection', (ws, req) => {
         // Bağlantı URL'sinden parametreleri al
         const params = new URLSearchParams(req.url.split('?')[1]);
@@ -42,7 +44,7 @@ module.exports = (app, wss) => {
             delete clientsInsta[instagramId]; // Kullanıcıyı temizle
         });
     });
-
+*/
     async function checkIfReplied(message) {
         // Instagram API'sinde mesaj yanıtlarını kontrol etme
         // Bu kısım Instagram API'sine göre uyarlanmalıdır

@@ -771,7 +771,7 @@ app.get('/messages/:chatId', async (req, res) => {
         }
     
         // JSON'dan cevap bulunamazsa ChatGPT API'ye yönlendir
-        return await callChatGPTAPI(msg.body, userLanguage, apiKey);
+        return await callChatGPTAPI(msg, userLanguage, apiKey);
     }
     
 module.exports.clients = clients;
