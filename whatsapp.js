@@ -483,6 +483,7 @@ app.get('/messages/:chatId', async (req, res) => {
                 if (!filePath) {
                     return 'Resim işlenirken hata oluştu.';
                 }
+                console.log('file adres', filePath);
                 return await handleImageMessage(filePath, text, questionsData, apiKey);
             } else if (media.mimetype.startsWith('audio/')) {
                 console.log('Mesaj türü: ptt (voice message).');
@@ -734,11 +735,16 @@ app.get('/messages/:chatId', async (req, res) => {
     
     async function handleImageMessage(imageUrl, caption, questionsData, apiKey) {
         const userLanguage = await detectLanguage(caption); // Caption dilini algıla
-        const translatedCaption = await translateText(caption, 'tr'); // Türkçe'ye çevir
+        let translatedCaption = caption;
+        console.log('User Language', userLanguage);
+        // Eğer kullanıcı dili Türkçe ise çeviri yapma
+        if (userLanguage !== 'tr') {
+            translatedCaption = await translateText(caption, 'tr'); // Türkçe'ye çevir
+        }
     
         const keywords = ['fiyat', 'beden', 'renk', 'kumaş', 'içerik', 'boy', 'kalıp'];
-        const containsKeywords = keywords.some(keyword => translatedCaption.toLowerCase().includes(keyword));
-    
+        const containsKeywords = keywords.some(keyword => translatedCaption.toLowerCase().includes(keyword.toLowerCase()));
+        console.log('keyword sonucu', containsKeywords);
         if (containsKeywords) {
             console.log('Ürün bilgisi sorgulanıyor, embedding işlemine yönlendiriliyor...');
             const imageEmbedding = await getImageEmbedding(imageUrl);
