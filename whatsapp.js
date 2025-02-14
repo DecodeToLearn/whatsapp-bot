@@ -465,7 +465,8 @@ app.get('/messages/:chatId', async (req, res) => {
             text = msg.body.body;
             media = msg.body.media;
         }
-
+        console.log('Mesaj içeriği:', text);
+        console.log('Mesaj içeriği:', media);
         console.log('Mesaj içeriği:', msg);
         if (media) {
             console.log('Mesajda medya var.');
