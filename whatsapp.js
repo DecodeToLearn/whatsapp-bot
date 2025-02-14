@@ -374,9 +374,16 @@ app.get('/messages/:chatId', async (req, res) => {
                                 if (quotedMsg.hasMedia) {
                                     const media = await quotedMsg.downloadMedia();
                                     if (media) {
-                                        const combinedMessage = `${attachedMessage}\n[Medya: ${media.filename || 'dosya'}]`;
-                                        console.log(`Birleştirilmiş mesaj: ${combinedMessage}`);
-                                        const response = await getChatGPTResponse({ body: combinedMessage });
+                                        const combinedMessage = {
+                                            body: attachedMessage,
+                                            media: {
+                                                filename: media.filename || 'dosya',
+                                                mimetype: media.mimetype,
+                                                data: media.data
+                                            }
+                                        };
+                                        console.log(`Birleştirilmiş mesaj: ${JSON.stringify(combinedMessage)}`);
+                                        const response = await getChatGPTResponse(combinedMessage);
                                         if (response) {
                                             await msg.reply(response);
                                         }
@@ -390,7 +397,7 @@ app.get('/messages/:chatId', async (req, res) => {
                                         }
                                     } else {
                                         // Yanıtlanan mesajın içeriği boş değilse attachedMessage'ı gönder
-                                        const response = await getChatGPTResponse({ body: attachedMessage });
+                                        const response = await getChatGPTResponse(attachedMessage);
                                         if (response) {
                                             await msg.reply(response);
                                         }
@@ -452,11 +459,31 @@ app.get('/messages/:chatId', async (req, res) => {
         const questionsData = JSON.parse(fs.readFileSync(questionsFilePath, 'utf8'));
 
         let text = msg.body;
-        let imageUrl = null;
-        let caption = null;
-        console.log('Mesaj içeriği:', msg);
+        let media = null;
+        // Eğer msg bir combinedMessage ise
+        if (msg.body && typeof msg.body === 'object' && msg.body.body) {
+            text = msg.body.body;
+            media = msg.body.media;
+        }
 
-        if (msg.hasMedia) {
+        console.log('Mesaj içeriği:', msg);
+        if (media) {
+            console.log('Mesajda medya var.');
+            if (media.mimetype.startsWith('image/')) {
+                console.log('Mesaj türü: image.');
+                const filePath = await saveImageToFile(media, msg.id?._serialized, msg.timestamp);
+                if (!filePath) {
+                    return 'Resim işlenirken hata oluştu.';
+                }
+                return await handleImageMessage(filePath, text, questionsData, apiKey);
+            } else if (media.mimetype.startsWith('audio/')) {
+                console.log('Mesaj türü: ptt (voice message).');
+                const audioBuffer = Buffer.from(media.data, 'base64');
+                return await handleAudioMessage(audioBuffer, questionsData, apiKey);
+            } else {
+                console.log(`Mesaj türü: ${media.mimetype}. Sesli mesaj veya resim değil.`);
+            }
+        } else if (msg.hasMedia) {
             console.log('Mesajda medya var.');
             console.log('Mesaj türü:', msg.type);
             if (msg.type === 'ptt') {
