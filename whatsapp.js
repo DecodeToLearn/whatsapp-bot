@@ -98,9 +98,16 @@ module.exports = (app, wss) => {
                 if (quotedMsg.hasMedia) {
                     const media = await quotedMsg.downloadMedia();
                     if (media) {
-                        const combinedMessage = `${attachedMessage}\n[Medya: ${media.filename || 'dosya'}]`;
-                        console.log(`Birleştirilmiş mesaj: ${combinedMessage}`);
-                        const response = await getChatGPTResponse({ body: combinedMessage });
+                        const combinedMessage = {
+                            body: attachedMessage,
+                            media: {
+                                filename: media.filename || 'dosya',
+                                mimetype: media.mimetype,
+                                data: media.data
+                            }
+                        };
+                        console.log(`Birleştirilmiş mesaj: ${JSON.stringify(combinedMessage)}`);
+                        const response = await getChatGPTResponse(combinedMessage);
                         if (response) {
                             await msg.reply(response);
                         }
