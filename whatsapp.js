@@ -374,7 +374,7 @@ app.get('/messages/:chatId', async (req, res) => {
         }
 
         const questionsFilePath = path.join(__dirname, 'questions.json');
-        const questionsFileUrl = 'https://wp.clupfashion.com/feed/questions.json';
+        const questionsFileUrl = 'https://drive.google.com/uc?export=download&id=1lpn05Wby5KN1dXtm0kHVMkK2HxMgc1Mj';
 
         let downloadFile = false;
         if (fs.existsSync(questionsFilePath)) {
