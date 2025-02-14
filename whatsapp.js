@@ -76,7 +76,7 @@ module.exports = (app, wss) => {
 
         client.on('message', async (msg) => {
             if (msg.fromMe || msg.hasMedia) return;
-
+        
             const isReplied = await checkIfReplied(msg);
             if (!isReplied) {
                 const response = await getChatGPTResponse(msg);
@@ -84,17 +84,41 @@ module.exports = (app, wss) => {
                     await msg.reply(response);
                 }
             }
-                 // Yanıtlanmış mesajı kontrol et ve al
+        
+            // Yanıtlanmış mesajı kontrol et ve al
             if (msg.hasQuotedMsg) {
                 const quotedMsg = await msg.getQuotedMessage();
                 console.log(`Yanıtlanan mesaj: ${quotedMsg.body}`);
-                const isQuotedReplied = await checkIfReplied(quotedMsg);
-                if (!isQuotedReplied) {
-                const response = await getChatGPTResponse(quotedMsg);
-                    if (response) {
-                        await msg.reply(response);
+        
+                // Yanıtlanan mesaja eklenen metni al
+                const attachedMessage = msg.body ? msg.body : 'Eklenen metin yok';
+                console.log(`Yanıtlanan mesaja eklenen metin: ${attachedMessage}`);
+        
+                // Eğer quotedMsg medyası varsa ve msg.body boş değilse, birleştir
+                if (quotedMsg.hasMedia) {
+                    const media = await quotedMsg.downloadMedia();
+                    if (media) {
+                        const combinedMessage = `${attachedMessage}\n[Medya: ${media.filename || 'dosya'}]`;
+                        console.log(`Birleştirilmiş mesaj: ${combinedMessage}`);
+                        const response = await getChatGPTResponse({ body: combinedMessage });
+                        if (response) {
+                            await msg.reply(response);
+                        }
                     }
-               
+                } else {
+                    // Yanıtlanan mesajın içeriği boşsa yanıtlanan mesajı gönder
+                    if (!quotedMsg.body) {
+                        const response = await getChatGPTResponse(quotedMsg);
+                        if (response) {
+                            await msg.reply(response);
+                        }
+                    } else {
+                        // Yanıtlanan mesajın içeriği boş değilse attachedMessage'ı gönder
+                        const response = await getChatGPTResponse({ body: attachedMessage });
+                        if (response) {
+                            await msg.reply(response);
+                        }
+                    }
                 }
             }
         });
@@ -321,7 +345,7 @@ app.get('/messages/:chatId', async (req, res) => {
     }
 
     async function checkUnreadMessages(client) {
-    try {
+        try {
             const chats = await client.getChats();
             for (const chat of chats) {
                 if (chat.unreadCount > 0) {
@@ -336,17 +360,41 @@ app.get('/messages/:chatId', async (req, res) => {
                                     await msg.reply(response);
                                 }
                             }
-                                            // Yanıtlanmış mesajı kontrol et ve al
+    
+                            // Yanıtlanmış mesajı kontrol et ve al
                             if (msg.hasQuotedMsg) {
                                 const quotedMsg = await msg.getQuotedMessage();
                                 console.log(`Yanıtlanan mesaj: ${quotedMsg.body}`);
-                                const isQuotedReplied = await checkIfReplied(quotedMsg);
-                                if (!isQuotedReplied) {
-                                const response = await getChatGPTResponse(quotedMsg);
-                                    if (response) {
-                                        await msg.reply(response);
+    
+                                // Yanıtlanan mesaja eklenen metni al
+                                const attachedMessage = msg.body ? msg.body : 'Eklenen metin yok';
+                                console.log(`Yanıtlanan mesaja eklenen metin: ${attachedMessage}`);
+    
+                                // Eğer quotedMsg medyası varsa ve msg.body boş değilse, birleştir
+                                if (quotedMsg.hasMedia) {
+                                    const media = await quotedMsg.downloadMedia();
+                                    if (media) {
+                                        const combinedMessage = `${attachedMessage}\n[Medya: ${media.filename || 'dosya'}]`;
+                                        console.log(`Birleştirilmiş mesaj: ${combinedMessage}`);
+                                        const response = await getChatGPTResponse({ body: combinedMessage });
+                                        if (response) {
+                                            await msg.reply(response);
+                                        }
                                     }
-                            
+                                } else {
+                                    // Yanıtlanan mesajın içeriği boşsa yanıtlanan mesajı gönder
+                                    if (!quotedMsg.body) {
+                                        const response = await getChatGPTResponse(quotedMsg);
+                                        if (response) {
+                                            await msg.reply(response);
+                                        }
+                                    } else {
+                                        // Yanıtlanan mesajın içeriği boş değilse attachedMessage'ı gönder
+                                        const response = await getChatGPTResponse({ body: attachedMessage });
+                                        if (response) {
+                                            await msg.reply(response);
+                                        }
+                                    }
                                 }
                             }
                         }
