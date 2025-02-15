@@ -106,7 +106,7 @@ module.exports = (app, wss) => {
                                 data: media.data
                             }
                         };
-                        console.log(`Birleştirilmiş mesaj: ${JSON.stringify(combinedMessage)}`);
+                       // console.log(`Birleştirilmiş mesaj: ${JSON.stringify(combinedMessage)}`);
                         const response = await getChatGPTResponse(combinedMessage);
                         if (response) {
                             await msg.reply(response);
@@ -389,7 +389,7 @@ app.get('/messages/:chatId', async (req, res) => {
                                                 data: media.data
                                             }
                                         };
-                                        console.log(`Birleştirilmiş mesaj: ${JSON.stringify(combinedMessage)}`);
+                                    //    console.log(`Birleştirilmiş mesaj: ${JSON.stringify(combinedMessage)}`);
                                         const response = await getChatGPTResponse(combinedMessage);
                                         if (response) {
                                             await msg.reply(response);
@@ -473,8 +473,7 @@ app.get('/messages/:chatId', async (req, res) => {
             media = msg.body.media;
         }
         console.log('Mesaj içeriği:', text);
-        console.log('Mesaj içeriği:', media);
-        console.log('Mesaj içeriği:', msg);
+
         if (media) {
             console.log('Mesajda medya var.');
             if (media.mimetype.startsWith('image/')) {
