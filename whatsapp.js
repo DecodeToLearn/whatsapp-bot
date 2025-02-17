@@ -484,6 +484,7 @@ app.get('/messages/:chatId', async (req, res) => {
         }
         console.log('Mesaj içeriği text', text);
         console.log('Mesaj içeriği media', media);
+        console.log('Mesaj içeriği msg', msg);
         if (media) {
             console.log('Mesajda medya var.');
             if (media.mimetype.startsWith('image/')) {
