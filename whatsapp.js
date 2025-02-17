@@ -375,12 +375,20 @@ app.get('/messages/:chatId', async (req, res) => {
                             // Yanıtlanmış mesajı kontrol et ve al
                             if (msg.hasQuotedMsg) {
                                 const quotedMsg = await msg.getQuotedMessage();
+                                console.log(`Yanıtlanan mesaj: ${quotedMsg}`);
                                 console.log(`Yanıtlanan mesaj: ${quotedMsg.body}`);
     
                                 // Yanıtlanan mesaja eklenen metni al
                                 const attachedMessage = msg.body ? msg.body : 'Eklenen metin yok';
                                 console.log(`Yanıtlanan mesaja eklenen metin: ${attachedMessage}`);
-    
+                                if ((!msg.body || msg.body == 'Eklenen metin yok') && msg.hasMedia) {
+                                    const media = await msg.downloadMedia();
+                                    const response = await getChatGPTResponse(media);
+                                    if (response) {
+                                        await msg.reply(response);
+                                    }
+                                    return;
+                                }
                                 // Eğer quotedMsg medyası varsa ve msg.body boş değilse, birleştir
                                 if (quotedMsg.hasMedia) {
                                     console.log('quote has media unread func');
