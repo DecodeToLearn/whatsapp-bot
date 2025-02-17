@@ -385,6 +385,7 @@ app.get('/messages/:chatId', async (req, res) => {
                                 if (quotedMsg.hasMedia) {
                                     console.log('quote has media unread func');
                                     const media = await quotedMsg.downloadMedia();
+                                    console.log('quote media',media);
                                     if (media) {
                                         const combinedMessage = {
                                             body: attachedMessage,
