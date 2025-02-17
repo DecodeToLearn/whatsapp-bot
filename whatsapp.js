@@ -479,7 +479,7 @@ app.get('/messages/:chatId', async (req, res) => {
             media = msg.body.media;
         }
         console.log('Mesaj içeriği:', text);
-
+        console.log('Media içeriği:', media);
         if (media) {
             console.log('Mesajda medya var.');
             if (media.mimetype.startsWith('image/')) {
