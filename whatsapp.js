@@ -98,6 +98,7 @@ module.exports = (app, wss) => {
                 if (quotedMsg.hasMedia) {
                     console.log('quote has media on message');
                     const media = await quotedMsg.downloadMedia();
+                    console.log('quote media',media);
                     if (media) {
                         const combinedMessage = {
                             body: attachedMessage,
@@ -479,7 +480,10 @@ app.get('/messages/:chatId', async (req, res) => {
             media = msg.body.media;
         }
         console.log('Mesaj içeriği:', text);
-        console.log('Media içeriği:', media);
+
+        console.log('Mesaj içeriği:', media);
+
+        console.log('Mesaj içeriği:', msg);
         if (media) {
             console.log('Mesajda medya var.');
             if (media.mimetype.startsWith('image/')) {
