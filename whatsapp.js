@@ -775,16 +775,33 @@ app.get('/messages/:chatId', async (req, res) => {
         }
     
         const keywords = ['fiyat', 'beden', 'renk', 'kumaş', 'içerik', 'boy', 'kalıp'];
+        const stockQuestions = [
+            'bu ürün sizin mi',
+            'bu ürün sizde var mı',
+            'bu ürün mevcut mu',
+            'bu üründen kaldı mı',
+            'bu ürün elinizde var mı',
+            'bu üründen kaç adet var',
+            'bu ürünün stoğu var mı'
+        ];
         const containsKeywords = keywords.some(keyword => translatedCaption.toLowerCase().includes(keyword.toLowerCase()));
+        const containsStockQuestions = stockQuestions.some(question => translatedCaption.toLowerCase().includes(question.toLowerCase()));
         console.log('keyword sonucu', containsKeywords);
-        if (containsKeywords) {
+        console.log('stock question sonucu', containsStockQuestions);
+
+        if (containsKeywords || containsStockQuestions) {
             console.log('Ürün bilgisi sorgulanıyor, embedding işlemine yönlendiriliyor...');
             const imageEmbedding = await getImageEmbedding(imageUrl);
             const product = await findProductByEmbedding(imageEmbedding, userLanguage);
     
             if (product) {
-                const response = `Ürün Bilgisi:\nAd: ${product.name}\nFiyat: ${product.price}\nBeden: ${product.size}\nRenk: ${product.color}`;
-                return await translateText(response, userLanguage); // Kullanıcının diline çevir ve döndür
+                if (containsStockQuestions && product.stock > 1) {
+                    const response = `Evet, ürün mevcut.\nÜrün Bilgisi:\nAd: ${product.name}\nFiyat: ${product.price}\nBeden: ${product.size}\nRenk: ${product.color}\nStok: ${product.stock}`;
+                    return await translateText(response, userLanguage); // Kullanıcının diline çevir ve döndür
+                } else {
+                    const response = `Ürün Bilgisi:\nAd: ${product.name}\nFiyat: ${product.price}\nBeden: ${product.size}\nRenk: ${product.color}`;
+                    return await translateText(response, userLanguage); // Kullanıcının diline çevir ve döndür
+                }
             }
     
             return await translateText('Ürün bulunamadı.', userLanguage);
