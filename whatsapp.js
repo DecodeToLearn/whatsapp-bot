@@ -93,7 +93,14 @@ module.exports = (app, wss) => {
                 // Yanıtlanan mesaja eklenen metni al
                 const attachedMessage = msg.body ? msg.body : 'Eklenen metin yok';
                 console.log(`Yanıtlanan mesaja eklenen metin: ${attachedMessage}`);
-        
+                if ((!msg.body || msg.body == 'Eklenen metin yok') && msg.hasMedia) {
+                    const media = await msg.downloadMedia();
+                    const response = await getChatGPTResponse(media);
+                    if (response) {
+                        await msg.reply(response);
+                    }
+                    return;
+                }
                 // Eğer quotedMsg medyası varsa ve msg.body boş değilse, birleştir
                 if (quotedMsg.hasMedia) {
                     console.log('quote has media on message');
@@ -490,7 +497,12 @@ app.get('/messages/:chatId', async (req, res) => {
         } else if (msg.media) {
             media = msg.media;
         } else if (msg.MessageMedia) {
-            media = msg.MessageMedia;
+            media = {
+                mimetype: msg.mimetype,
+                data: msg.data,
+                filename: msg.filename,
+                filesize: msg.filesize
+            };
         }
         console.log('Mesaj içeriği text', text);
         console.log('Mesaj içeriği media', media);
