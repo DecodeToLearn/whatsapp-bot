@@ -765,48 +765,54 @@ app.get('/messages/:chatId', async (req, res) => {
     
             return await translateText('Ürün bulunamadı.', userLanguage);
         }
-    
-            // Eğer anahtar kelime yoksa question.json dosyasını kontrol et
-        let bestMatch = null;
-        let highestSimilarity = 0;
+    try {
+           // 2. Anahtar kelimelerle kategori belirle
+           const selectedCategory = findCategory(translatedText, questionsData);
+           if (!selectedCategory) {
+               console.log("Kategori bulunamadı. ChatGPT'ye yönlendiriliyor...");
+               return await callChatGPTAPI(msg, userLanguage, apiKey);
+           }
 
-        try {
-            const userEmbedding = await getEmbedding(translatedCaption, apiKey); // Kullanıcı caption'ı embedding
+
+            // 3. Seçilen kategoride soru eşleştirme
+            const categoryQuestions = questionsData[selectedCategory].Sorular;
+            const userEmbedding = await getEmbedding(translatedText, apiKey);
+
             if (!userEmbedding) {
-                console.error('Kullanıcı embedding alınamadı.');
-                return await translateText('Bir hata oluştu, lütfen tekrar deneyin.', userLanguage);
+                console.error("Kullanıcı embedding'i alınamadı.");
+                return "Bir hata oluştu. Lütfen tekrar deneyin.";
+            }
+            let bestMatch = null;
+            let highestSimilarity = 0;
+            const similarityThreshold = 0.85; // Benzerlik için eşik değeri
+
+            // Soruların embedding'lerini oluştur ve en iyi eşleşmeyi bul
+            for (const [question, questionData] of Object.entries(categoryQuestions)) {
+                for (const template of questionData.Şablonlar) {
+                    const questionEmbedding = await getEmbedding(template, apiKey);
+                    const similarity = cosineSimilarity(userEmbedding, questionEmbedding);
+
+                    if (similarity > highestSimilarity) {
+                        highestSimilarity = similarity;
+                        bestMatch = questionData.Cevap;
+                    }
+                }
             }
 
-            // Question.json içeriğiyle benzerlik analizi
-            for (const [question, answer] of Object.entries(questionsData)) {
-                const questionEmbedding = await getEmbedding(question, apiKey);
-                if (!questionEmbedding) {
-                    console.error(`Soru için embedding alınamadı: ${question}`);
-                    continue;
-                }
-
-                const similarity = cosineSimilarity(userEmbedding, questionEmbedding);
-                if (similarity > highestSimilarity) {
-                    highestSimilarity = similarity;
-                    bestMatch = { question, answer };
-                }
-            }
-
-            // Eğer eşleşme varsa cevap döndür
-            if (highestSimilarity >= 0.85) {
-                console.log(`En uygun cevap bulundu: ${bestMatch.question} (${highestSimilarity})`);
-                const translatedResponse = await translateText(bestMatch.answer, userLanguage);
+            // Eşik değer kontrolü
+            // 4. Eşleşme kontrolü ve cevap döndürme
+            if (highestSimilarity >= similarityThreshold) {
+                const translatedResponse = await translateText(bestMatch, userLanguage);
+                console.log(`En uygun cevap bulundu: "${bestMatch}" (${highestSimilarity})`);
                 return translatedResponse;
+            } else {
+                console.log("Uygun cevap bulunamadı. ChatGPT'ye yönlendiriliyor...");
+                return await callChatGPTAPI(msg, userLanguage, apiKey);
             }
-
-        } catch (error) {
-            console.error('Soru eşleştirme sırasında hata oluştu:', error);
-        }
-
-        // Eğer hiçbir eşleşme bulunamazsa ChatGPT API'ye yönlendir
-        console.log('Benzer soru bulunamadı, ChatGPT API çağrılıyor...');
-        // JSON'dan cevap bulunamazsa ChatGPT API'ye yönlendir
-        return await callChatGPTAPI(translatedCaption, userLanguage, apiKey);
+            } catch (error) {
+            console.error("Bir hata oluştu:", error.message);
+            return "Bir hata oluştu. Lütfen tekrar deneyin.";
+            }
     }
 
     async function handleAudioMessage(audioBuffer, questionsData, apiKey) {
@@ -820,51 +826,71 @@ app.get('/messages/:chatId', async (req, res) => {
     
             // 2. Dil algılama
             const userLanguage = await detectLanguage(transcribedText); 
-            const translatedText = await translateText(transcribedText, 'tr'); // Türkçe'ye çevir
-    
-            let bestMatch = null;
-            let highestSimilarity = 0;
-    
-            // 3. Benzerlik analizi için embedding'ler hazırlanıyor
-            const userEmbedding = await getEmbedding(translatedText, apiKey);
-            if (!userEmbedding) {
-                console.error('Kullanıcı metni embedding alınamadı.');
-                return 'Bir hata oluştu, lütfen tekrar deneyin.';
+            let translatedText = transcribedText;
+            console.log('User Language', userLanguage);
+            // Eğer kullanıcı dili Türkçe ise çeviri yapma
+            if (userLanguage !== 'tr') {
+                translatedText = await translateText(transcribedText, 'tr'); // Türkçe'ye çevir
             }
-    
-            for (const [question, answer] of Object.entries(questionsData)) {
-                const questionEmbedding = await getEmbedding(question, apiKey);
-                if (!questionEmbedding) {
-                    console.error(`Soru için embedding alınamadı: ${question}`);
-                    continue;
+                    // 2. Anahtar kelimelerle kategori belirle
+                    const selectedCategory = findCategory(translatedText, questionsData);
+                    if (!selectedCategory) {
+                        console.log("Kategori bulunamadı. ChatGPT'ye yönlendiriliyor...");
+                        return await callChatGPTAPI(msg, userLanguage, apiKey);
+                    }
+            
+            
+                    // 3. Seçilen kategoride soru eşleştirme
+                    const categoryQuestions = questionsData[selectedCategory].Sorular;
+                    const userEmbedding = await getEmbedding(translatedText, apiKey);
+            
+                    if (!userEmbedding) {
+                        console.error("Kullanıcı embedding'i alınamadı.");
+                        return "Bir hata oluştu. Lütfen tekrar deneyin.";
+                    }
+                    let bestMatch = null;
+                    let highestSimilarity = 0;
+                    const similarityThreshold = 0.85; // Benzerlik için eşik değeri
+                
+                    // Soruların embedding'lerini oluştur ve en iyi eşleşmeyi bul
+                    for (const [question, questionData] of Object.entries(categoryQuestions)) {
+                        for (const template of questionData.Şablonlar) {
+                            const questionEmbedding = await getEmbedding(template, apiKey);
+                            const similarity = cosineSimilarity(userEmbedding, questionEmbedding);
+            
+                            if (similarity > highestSimilarity) {
+                                highestSimilarity = similarity;
+                                bestMatch = questionData.Cevap;
+                            }
+                        }
+                    }
+                
+                    // Eşik değer kontrolü
+                    // 4. Eşleşme kontrolü ve cevap döndürme
+                    if (highestSimilarity >= similarityThreshold) {
+                        const translatedResponse = await translateText(bestMatch, userLanguage);
+                        console.log(`En uygun cevap bulundu: "${bestMatch}" (${highestSimilarity})`);
+                        return translatedResponse;
+                    } else {
+                        console.log("Uygun cevap bulunamadı. ChatGPT'ye yönlendiriliyor...");
+                        return await callChatGPTAPI(msg, userLanguage, apiKey);
+                    }
+                } catch (error) {
+                    console.error("Bir hata oluştu:", error.message);
+                    return "Bir hata oluştu. Lütfen tekrar deneyin.";
                 }
-    
-                const similarity = cosineSimilarity(userEmbedding, questionEmbedding);
-                if (similarity > highestSimilarity) {
-                    highestSimilarity = similarity;
-                    bestMatch = { question, answer };
-                }
-            }
-    
-            // 4. En yüksek benzerlik eşik değeri ile karşılaştırılıyor
-            if (highestSimilarity >= 0.85 && bestMatch) {
-                console.log(`En uygun cevap bulundu: ${bestMatch.question} (${highestSimilarity})`);
-                const translatedResponse = await translateText(bestMatch.answer, userLanguage); // Cevabı kullanıcı diline çevir
-                return translatedResponse;
-            }
-    
-            // 5. JSON'dan cevap bulunamazsa ChatGPT API'ye yönlendirilir
-            console.log('Benzer soru bulunamadı, ChatGPT API çağrılıyor...');
-            return await callChatGPTAPI(transcribedText, userLanguage, apiKey);
-        } catch (error) {
-            console.error('handleAudioMessage sırasında hata oluştu:', error);
-            return 'Bir hata oluştu, lütfen tekrar deneyin.';
-        }
     }
     async function handleTextMessage(msg, questionsData, apiKey) {
         try {
         const userLanguage = await detectLanguage(msg); // Mesajın dilini algıla
-        const translatedText = await translateText(msg, 'tr'); // Türkçe'ye çevir
+
+        let translatedText = msg;
+        console.log('User Language', userLanguage);
+        // Eğer kullanıcı dili Türkçe ise çeviri yapma
+        if (userLanguage !== 'tr') {
+            translatedText = await translateText(msg, 'tr'); // Türkçe'ye çevir
+        }
+        
 
                 // 2. Anahtar kelimelerle kategori belirle
                 const selectedCategory = findCategory(translatedText, questionsData);
