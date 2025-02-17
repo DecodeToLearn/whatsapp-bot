@@ -477,13 +477,12 @@ app.get('/messages/:chatId', async (req, res) => {
         // Eğer msg bir combinedMessage ise
         if (msg.body && typeof msg.body === 'object' && msg.body.body) {
             text = msg.body.body;
+            media = msg.body.media;
+        } else if (msg.media) {
             media = msg.media;
         }
         console.log('Mesaj içeriği text', text);
-
         console.log('Mesaj içeriği media', media);
-
-        console.log('Gelen mesajın hepsi', msg);
         if (media) {
             console.log('Mesajda medya var.');
             if (media.mimetype.startsWith('image/')) {
