@@ -775,17 +775,9 @@ app.get('/messages/:chatId', async (req, res) => {
         }
     
         const keywords = ['fiyat', 'beden', 'renk', 'kumaş', 'içerik', 'boy', 'kalıp'];
-        const stockQuestions = [
-            'bu ürün sizin mi',
-            'bu ürün sizde var mı',
-            'bu ürün mevcut mu',
-            'bu üründen kaldı mı',
-            'bu ürün elinizde var mı',
-            'bu üründen kaç adet var',
-            'bu ürünün stoğu var mı'
-        ];
+
         const containsKeywords = keywords.some(keyword => translatedCaption.toLowerCase().includes(keyword.toLowerCase()));
-        const containsStockQuestions = stockQuestions.some(question => translatedCaption.toLowerCase().includes(question.toLowerCase()));
+        const { containsStockQuestions, highestStockSimilarity } = await checkStockQuestions(translatedCaption, apiKey);
         console.log('keyword sonucu', containsKeywords);
         console.log('stock question sonucu', containsStockQuestions);
 
@@ -990,5 +982,38 @@ app.get('/messages/:chatId', async (req, res) => {
             }
         }
         return null; // Kategori bulunamadı
+    }
+
+    async function checkStockQuestions(translatedCaption, apiKey) {
+        const stockQuestions = [
+            'bu ürün sizin mi',
+            'bu ürün sizde var mı',
+            'bu ürün mevcut mu',
+            'bu üründen kaldı mı',
+            'bu ürün elinizde var mı',
+            'bu üründen kaç adet var',
+            'bu ürünün stoğu var mı'
+        ];
+    
+        let containsStockQuestions = false;
+        let highestStockSimilarity = 0;
+    
+        // Stock questions için embedding ve similarity kontrolü
+        for (const question of stockQuestions) {
+            const questionEmbedding = await getEmbedding(question, apiKey);
+            const captionEmbedding = await getEmbedding(translatedCaption, apiKey);
+            const similarity = cosineSimilarity(captionEmbedding, questionEmbedding);
+    
+            if (similarity > highestStockSimilarity) {
+                highestStockSimilarity = similarity;
+            }
+    
+            if (similarity >= 0.85) { // Benzerlik için eşik değeri
+                containsStockQuestions = true;
+                break;
+            }
+        }
+    
+        return { containsStockQuestions, highestStockSimilarity };
     }
 module.exports.clients = clients;
