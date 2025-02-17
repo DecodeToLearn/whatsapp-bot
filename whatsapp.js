@@ -496,7 +496,7 @@ app.get('/messages/:chatId', async (req, res) => {
             media = msg.body.media;
         } else if (msg.media) {
             media = msg.media;
-        } else if (msg.MessageMedia) {
+        } else if (msg.mimetype && msg.data && !msg.hasMedia) {
             media = {
                 mimetype: msg.mimetype,
                 data: msg.data,
