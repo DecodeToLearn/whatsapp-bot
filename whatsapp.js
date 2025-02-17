@@ -96,6 +96,7 @@ module.exports = (app, wss) => {
         
                 // Eğer quotedMsg medyası varsa ve msg.body boş değilse, birleştir
                 if (quotedMsg.hasMedia) {
+                    console.log('quote has media on message');
                     const media = await quotedMsg.downloadMedia();
                     if (media) {
                         const combinedMessage = {
@@ -115,12 +116,14 @@ module.exports = (app, wss) => {
                 } else {
                     // Yanıtlanan mesajın içeriği boşsa yanıtlanan mesajı gönder
                     if (!quotedMsg.body) {
+                        console.log('quotedMsg not body on message');
                         const response = await getChatGPTResponse(quotedMsg);
                         if (response) {
                             await msg.reply(response);
                         }
                     } else {
                         // Yanıtlanan mesajın içeriği boş değilse attachedMessage'ı gönder
+                        console.log('quotedMsg body on message');
                         const response = await getChatGPTResponse({ body: attachedMessage });
                         if (response) {
                             await msg.reply(response);
@@ -379,6 +382,7 @@ app.get('/messages/:chatId', async (req, res) => {
     
                                 // Eğer quotedMsg medyası varsa ve msg.body boş değilse, birleştir
                                 if (quotedMsg.hasMedia) {
+                                    console.log('quote has media unread func');
                                     const media = await quotedMsg.downloadMedia();
                                     if (media) {
                                         const combinedMessage = {
@@ -398,12 +402,14 @@ app.get('/messages/:chatId', async (req, res) => {
                                 } else {
                                     // Yanıtlanan mesajın içeriği boşsa yanıtlanan mesajı gönder
                                     if (!quotedMsg.body) {
+                                        console.log('quotedMsg not body unread func');
                                         const response = await getChatGPTResponse(quotedMsg);
                                         if (response) {
                                             await msg.reply(response);
                                         }
                                     } else {
                                         // Yanıtlanan mesajın içeriği boş değilse attachedMessage'ı gönder
+                                        console.log('quotedMsg body unread func');
                                         const response = await getChatGPTResponse(attachedMessage);
                                         if (response) {
                                             await msg.reply(response);
