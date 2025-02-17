@@ -489,6 +489,8 @@ app.get('/messages/:chatId', async (req, res) => {
             media = msg.body.media;
         } else if (msg.media) {
             media = msg.media;
+        } else if (msg.MessageMedia) {
+            media = msg.MessageMedia;
         }
         console.log('Mesaj içeriği text', text);
         console.log('Mesaj içeriği media', media);
