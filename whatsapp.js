@@ -773,11 +773,12 @@ app.get('/messages/:chatId', async (req, res) => {
         if (userLanguage !== 'tr') {
             translatedCaption = await translateText(caption, 'tr'); // Türkçe'ye çevir
         }
-    
-        const keywords = ['fiyat', 'beden', 'renk', 'kumaş', 'içerik', 'boy', 'kalıp'];
+        console.log('caption yazısı', translatedCaption);
 
+        const keywords = ['fiyat', 'beden', 'renk', 'kumaş', 'içerik', 'boy', 'kalıp'];
         const containsKeywords = keywords.some(keyword => translatedCaption.toLowerCase().includes(keyword.toLowerCase()));
         const { containsStockQuestions, highestStockSimilarity } = await checkStockQuestions(translatedCaption, apiKey);
+        console.log('Eşiklik derecesi', highestStockSimilarity);
         console.log('keyword sonucu', containsKeywords);
         console.log('stock question sonucu', containsStockQuestions);
 
@@ -985,6 +986,7 @@ app.get('/messages/:chatId', async (req, res) => {
     }
 
     async function checkStockQuestions(translatedCaption, apiKey) {
+        console.log('checkStockQuestions içi', translatedCaption);
         const stockQuestions = [
             'bu ürün sizin mi',
             'bu ürün sizde var mı',
@@ -992,7 +994,8 @@ app.get('/messages/:chatId', async (req, res) => {
             'bu üründen kaldı mı',
             'bu ürün elinizde var mı',
             'bu üründen kaç adet var',
-            'bu ürünün stoğu var mı'
+            'bu ürünün stoğu var mı',
+            'bu ürün var mı'
         ];
     
         let containsStockQuestions = false;
