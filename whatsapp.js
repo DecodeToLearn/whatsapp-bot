@@ -208,7 +208,7 @@ const saveMediaToFile = async (media, msgId, timestamp) => {
 
 const downloadedMedia = new Set();
 app.get('/messages/:chatId', async (req, res) => {
-    const { userId } = req.query.userId;
+    const userId = req.query.userId;
     try {
         const limit = parseInt(req.query.limit) || 20;
         const { chatId } = req.params;
