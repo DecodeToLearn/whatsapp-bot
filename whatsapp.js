@@ -792,7 +792,7 @@ app.get('/messages/:chatId', async (req, res) => {
                     const response = `Evet, ürün mevcut.\nÜrün Bilgisi:\nAd: ${product.name}\nFiyat: ${product.price}\nBeden: ${product.size}\nRenk: ${product.color}\nStok: ${product.stock}`;
                     return await translateText(response, userLanguage); // Kullanıcının diline çevir ve döndür
                 } else {
-                    const response = `Ürün Bilgisi:\nAd: ${product.name}\nFiyat: ${product.price}\nBeden: ${product.size}\nRenk: ${product.color}`;
+                    const response = `Ürün Bilgisi:\nAd: ${product.name}\nFiyat: ${product.price}\nBeden: ${product.size}\nRenk: ${product.color}\nStok: ${product.stock}`;
                     return await translateText(response, userLanguage); // Kullanıcının diline çevir ve döndür
                 }
             }
